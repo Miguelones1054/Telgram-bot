@@ -57,32 +57,54 @@ bot = telebot.TeleBot(TELEGRAM_TOKEN)
 # Registrar el tiempo de inicio del bot
 tiempo_inicio_bot = int(time.time())
 
-# Importar qreader
+# Importar bibliotecas para QR - intentar múltiples opciones
+qr_reader = None
+qreader_available = False
+
+# Intentar importar qreader primero
 try:
     from qreader import QReader
-    qreader_available = True
     qr_reader = QReader()
+    qreader_available = True
     print("Biblioteca qreader cargada correctamente")
 except ImportError:
-    qreader_available = False
-    print("Biblioteca qreader no disponible. Este bot requiere qreader para funcionar.")
+    print("Biblioteca qreader no disponible, intentando con pyzbar...")
+    
+    # Intentar con pyzbar como alternativa
+    try:
+        from pyzbar.pyzbar import decode
+        qreader_available = True
+        print("Biblioteca pyzbar cargada correctamente")
+    except ImportError:
+        print("Ni qreader ni pyzbar están disponibles. Instalando dependencias...")
+        qreader_available = False
+
+if not qreader_available:
+    print("No se encontraron bibliotecas para leer QR. Este bot requiere qreader o pyzbar para funcionar.")
     sys.exit(1)
 
-# Función para decodificar QR usando qreader
+# Función para decodificar QR usando qreader o pyzbar
 def decodificar_qr(imagen_bytes):
     try:
-        # Convertir bytes a imagen para qreader
+        # Convertir bytes a imagen
         img = Image.open(BytesIO(imagen_bytes))
-        img_array = np.array(img)
         
-        # Detectar y decodificar QR
-        decoded_text = qr_reader.detect_and_decode(image=img_array)
+        # Si tenemos qreader, usarlo
+        if hasattr(qr_reader, 'detect_and_decode'):
+            img_array = np.array(img)
+            decoded_text = qr_reader.detect_and_decode(image=img_array)
+            
+            if decoded_text and decoded_text[0]:
+                print(f"Contenido del QR (qreader): {decoded_text[0]}")
+                return decoded_text[0]
         
-        # Si se encontró algún QR
-        if decoded_text and decoded_text[0]:
-            # Registrar el contenido completo en los logs
-            print(f"Contenido del QR: {decoded_text[0]}")
-            return decoded_text[0]
+        # Si no, usar pyzbar
+        else:
+            decoded_objects = decode(img)
+            for obj in decoded_objects:
+                decoded_text = obj.data.decode('utf-8')
+                print(f"Contenido del QR (pyzbar): {decoded_text}")
+                return decoded_text
         
         return None
     except Exception as e:

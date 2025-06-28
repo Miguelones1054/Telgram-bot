@@ -4,6 +4,7 @@ google-generativeai
 google-cloud-vision
 opencv-python-headless
 qreader
+pyzbar
 Pillow
 numpy
 requests
