@@ -1,6 +1,6 @@
-FROM python:3.11-slim
+FROM python:3.11
 
-# Instalar dependencias del sistema necesarias para qreader
+# Instalar dependencias del sistema necesarias para qreader y OpenCV
 RUN apt-get update && apt-get install -y \
     libgl1-mesa-glx \
     libglib2.0-0 \
@@ -24,9 +24,6 @@ RUN apt-get update && apt-get install -y \
     libhdf5-dev \
     libhdf5-serial-dev \
     libhdf5-103 \
-    libqtgui4 \
-    libqtwebkit4 \
-    libqt4-test \
     python3-dev \
     python3-pip \
     python3-venv \
@@ -47,8 +44,5 @@ RUN pip install -r requirements.txt
 # Copiar código de la aplicación
 COPY . .
 
-# Exponer puerto
-EXPOSE 10000
-
 # Comando para ejecutar la aplicación
-CMD ["python", "qr_bot.py"] 
+CMD ["python", "qr_bot.py"]
