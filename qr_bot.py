@@ -10,6 +10,17 @@ import numpy as np
 from PIL import Image
 import google.generativeai as genai
 
+# Configurar credenciales de Google desde variables de entorno (si es necesario)
+if "GOOGLE_CREDENTIALS_JSON" in os.environ:
+    import json
+    try:
+        with open("credentials.json", "w") as f:
+            f.write(os.environ["GOOGLE_CREDENTIALS_JSON"])
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "credentials.json"
+        print("Archivo de credenciales de Google creado desde variable de entorno")
+    except Exception as e:
+        print(f"Error al crear archivo de credenciales: {e}")
+
 # Cargar variables de entorno
 try:
     load_dotenv()
