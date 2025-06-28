@@ -1,7 +1,7 @@
 services:
-  # Opción 1: Bot de Telegram con Polling (worker)
+  # Bot de Telegram con Polling (Background Worker) - más compatible con qreader
   - type: worker
-    name: telegram-bot-polling
+    name: telegram-qr-bot
     env: python
     buildCommand: pip install --upgrade pip && pip install -r requirements.txt
     startCommand: python run_telegram_bot.py
