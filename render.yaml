@@ -1,0 +1,26 @@
+services:
+  # Opción 1: Bot de Telegram con Polling (worker)
+  - type: worker
+    name: telegram-bot-polling
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python run_telegram_bot.py
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+    plan: free
+
+  # Opción 2: Bot de Telegram con Webhook (web service)
+  - type: web
+    name: telegram-bot-webhook
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python qr_bot.py
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+    plan: free 

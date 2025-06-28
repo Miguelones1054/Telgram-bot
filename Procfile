@@ -1,0 +1,1 @@
+web: python qr_bot.py 
