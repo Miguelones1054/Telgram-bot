@@ -7,6 +7,7 @@ import numpy as np
 from PIL import Image
 import google.generativeai as genai
 from dotenv import load_dotenv
+import cv2
 
 # Cargar variables de entorno
 try:
@@ -19,103 +20,47 @@ GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 
 # Verificar API key de Gemini
 if GEMINI_API_KEY:
-    # Configurar Gemini
     genai.configure(api_key=GEMINI_API_KEY)
     print("API de Google Gemini configurada correctamente")
 else:
     print("ADVERTENCIA: No se encontró la API key de Google Gemini en las variables de entorno.")
     print("El análisis avanzado no estará disponible.")
 
-# Intentar instalar zbar si estamos en Linux
-try:
-    import platform
-    if platform.system() == "Linux":
-        print("Detectado sistema Linux, intentando instalar zbar...")
-        import subprocess
-        try:
-            subprocess.check_call(["apt-get", "update"])
-            subprocess.check_call(["apt-get", "install", "-y", "libzbar0", "libzbar-dev"])
-            print("Instalación de zbar completada")
-        except Exception as e:
-            print(f"Error al instalar zbar: {e}")
-except Exception as e:
-    print(f"Error al verificar el sistema: {e}")
-
-# Importar bibliotecas para QR
-qreader_available = False
-pyzbar_available = False
-cv2_available = False
-
-# Intentar importar múltiples bibliotecas para lectura de QR
-print("Intentando cargar bibliotecas para lectura de QR...")
-
-# 1. Intentar con qreader (primera opción)
-try:
-    import qreader
-    qreader_available = True
-    print("Biblioteca qreader cargada correctamente")
-except ImportError as e:
-    print(f"Error al cargar qreader: {e}")
-    
-    # Intentar instalar qreader automáticamente
+# Función para decodificar QR usando solo OpenCV
+def decodificar_qr(imagen_bytes):
     try:
-        import subprocess
-        print("Intentando instalar qreader...")
-        subprocess.check_call(["pip", "install", "qreader"])
-        import qreader
-        qreader_available = True
-        print("Biblioteca qreader instalada y cargada correctamente")
+        # Convertir bytes a imagen
+        img = Image.open(BytesIO(imagen_bytes))
+        img_array = np.array(img)
+
+        # Si la imagen es RGBA, convertirla a RGB
+        if len(img_array.shape) == 3 and img_array.shape[2] == 4:
+            img_rgb = cv2.cvtColor(img_array, cv2.COLOR_RGBA2RGB)
+        else:
+            img_rgb = img_array
+
+        img_cv = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
+
+        # Crear detector QR
+        qr_detector = cv2.QRCodeDetector()
+        data, bbox, _ = qr_detector.detectAndDecode(img_cv)
+
+        if data:
+            print(f"Contenido del QR (OpenCV): {data}")
+            return data
+
+        # Intentar con imagen procesada (blanco y negro)
+        img_gray = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
+        _, img_thresh = cv2.threshold(img_gray, 127, 255, cv2.THRESH_BINARY)
+        data, bbox, _ = qr_detector.detectAndDecode(img_thresh)
+        if data:
+            print(f"Contenido del QR (OpenCV - imagen procesada): {data}")
+            return data
+
+        return None
     except Exception as e:
-        print(f"Error al instalar qreader: {e}")
-
-# 2. Intentar con pyzbar (segunda opción)
-if not qreader_available:
-    try:
-        from pyzbar.pyzbar import decode as pyzbar_decode
-        pyzbar_available = True
-        print("Biblioteca pyzbar cargada correctamente")
-    except ImportError as e:
-        print(f"Error al cargar pyzbar: {e}")
-        
-        # Intentar instalar pyzbar automáticamente
-        try:
-            import subprocess
-            print("Intentando instalar pyzbar...")
-            subprocess.check_call(["pip", "install", "pyzbar"])
-            from pyzbar.pyzbar import decode as pyzbar_decode
-            pyzbar_available = True
-            print("Biblioteca pyzbar instalada y cargada correctamente")
-        except Exception as e:
-            print(f"Error al instalar pyzbar: {e}")
-
-# 3. Intentar con OpenCV como última alternativa
-if not qreader_available and not pyzbar_available:
-    try:
-        print("Intentando cargar OpenCV como alternativa...")
-        import cv2
-        cv2_available = True
-        print("OpenCV cargado correctamente")
-    except ImportError:
-        print("OpenCV no disponible")
-        
-        # Intentar instalar OpenCV
-        try:
-            import subprocess
-            print("Intentando instalar OpenCV...")
-            subprocess.check_call(["pip", "install", "opencv-python-headless"])
-            import cv2
-            cv2_available = True
-            print("OpenCV instalado y cargado correctamente")
-        except Exception as e:
-            print(f"Error al instalar OpenCV: {e}")
-
-if not qreader_available and not pyzbar_available and not cv2_available:
-    print("Error crítico: No se encontraron bibliotecas para leer QR.")
-    print("Este programa requiere alguna de estas bibliotecas: qreader, pyzbar o OpenCV")
-    print("En sistemas Linux, ejecuta: apt-get install libzbar0 zbar-tools")
-    sys.exit(1)
-else:
-    print("Al menos una biblioteca para lectura de QR está disponible")
+        print(f"Error al decodificar QR: {e}")
+        return None
 
 # Función para normalizar el resultado de la decodificación QR
 def normalizar_resultado_qr(resultado):
@@ -148,128 +93,6 @@ def normalizar_resultado_qr(resultado):
         return str(resultado)
     except Exception as e:
         print(f"Error al normalizar resultado QR: {e}")
-        return None
-
-# Función para decodificar QR usando las bibliotecas disponibles
-def decodificar_qr(imagen_bytes):
-    try:
-        # Convertir bytes a imagen
-        img = Image.open(BytesIO(imagen_bytes))
-        
-        # 1. Intentar con qreader si está disponible (mejor rendimiento)
-        if qreader_available:
-            # Convertir PIL a numpy array
-            img_array = np.array(img)
-            
-            # Verificar si la imagen tiene 4 canales (RGBA) y convertirla a RGB
-            if len(img_array.shape) == 3 and img_array.shape[2] == 4:
-                # Convertir RGBA a RGB
-                img_rgb = Image.fromarray(img_array).convert('RGB')
-                img_array = np.array(img_rgb)
-                print("Imagen convertida de RGBA a RGB")
-            
-            # Crear detector QR
-            detector = qreader.QReader()
-            
-            try:
-                # Decodificar QR
-                decoded_result = detector.detect_and_decode(image=img_array, return_detections=False)
-                
-                # Normalizar el resultado (convertir tupla a cadena si es necesario)
-                decoded_text = normalizar_resultado_qr(decoded_result)
-                
-                if decoded_text:
-                    print(f"Contenido del QR (qreader): {decoded_result}")
-                    print(f"Contenido normalizado: {decoded_text}")
-                    return decoded_text
-            except Exception as e:
-                print(f"Error con qreader: {e}")
-                # Si falla qreader, continuamos con otros métodos
-            
-            # Si no se encontró ningún QR, intentar con una imagen procesada
-            try:
-                # Asegurarse de que la imagen es RGB para evitar errores
-                if len(img_array.shape) == 3 and img_array.shape[2] == 3 and cv2_available:
-                    img_gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
-                    _, img_thresh = cv2.threshold(img_gray, 127, 255, cv2.THRESH_BINARY)
-                    
-                    # Intentar de nuevo con la imagen procesada
-                    decoded_result = detector.detect_and_decode(image=img_thresh, return_detections=False)
-                    
-                    # Normalizar el resultado
-                    decoded_text = normalizar_resultado_qr(decoded_result)
-                    
-                    if decoded_text:
-                        print(f"Contenido del QR (qreader - imagen procesada): {decoded_result}")
-                        print(f"Contenido normalizado: {decoded_text}")
-                        return decoded_text
-            except Exception as e:
-                print(f"Error con qreader (imagen procesada): {e}")
-                # Si falla, continuamos con otros métodos
-        
-        # 2. Intentar con pyzbar si está disponible o si qreader falló
-        if pyzbar_available:
-            try:
-                decoded_objects = pyzbar_decode(img)
-                for obj in decoded_objects:
-                    decoded_text = obj.data.decode('utf-8')
-                    print(f"Contenido del QR (pyzbar): {decoded_text}")
-                    return decoded_text
-            except Exception as e:
-                print(f"Error con pyzbar: {e}")
-            
-            # Si no se encontró ningún QR, intentar con una imagen procesada
-            try:
-                img_gray = img.convert('L')
-                img_contrast = Image.eval(img_gray, lambda x: 0 if x < 128 else 255)
-                
-                decoded_objects = pyzbar_decode(img_contrast)
-                for obj in decoded_objects:
-                    decoded_text = obj.data.decode('utf-8')
-                    print(f"Contenido del QR (pyzbar - imagen procesada): {decoded_text}")
-                    return decoded_text
-            except Exception as e:
-                print(f"Error con pyzbar (imagen procesada): {e}")
-        
-        # 3. Intentar con OpenCV si está disponible o si los anteriores fallaron
-        if cv2_available:
-            try:
-                # Convertir PIL a OpenCV
-                img_array = np.array(img)
-                
-                # Si la imagen es RGBA, convertirla a RGB
-                if len(img_array.shape) == 3 and img_array.shape[2] == 4:
-                    img_rgb = cv2.cvtColor(img_array, cv2.COLOR_RGBA2RGB)
-                else:
-                    img_rgb = img_array
-                
-                img_cv = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
-                
-                # Crear detector QR
-                qr_detector = cv2.QRCodeDetector()
-                data, bbox, _ = qr_detector.detectAndDecode(img_cv)
-                
-                if data:
-                    print(f"Contenido del QR (OpenCV): {data}")
-                    return data
-            except Exception as e:
-                print(f"Error con OpenCV: {e}")
-            
-            # Intentar con imagen procesada
-            try:
-                img_gray = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
-                _, img_thresh = cv2.threshold(img_gray, 127, 255, cv2.THRESH_BINARY)
-                data, bbox, _ = qr_detector.detectAndDecode(img_thresh)
-                
-                if data:
-                    print(f"Contenido del QR (OpenCV - imagen procesada): {data}")
-                    return data
-            except Exception as e:
-                print(f"Error con OpenCV (imagen procesada): {e}")
-        
-        return None
-    except Exception as e:
-        print(f"Error al decodificar QR: {e}")
         return None
 
 # Función para extraer nombres de personas del contenido del QR
