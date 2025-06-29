@@ -1,0 +1,52 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Entorno virtual
+venv/
+ENV/
+
+# Archivos de configuración local
+.env
+credentials.json
+
+# Archivos de Docker
+.dockerignore
+Dockerfile
+docker-compose.yml
+
+# Archivos de Render
+.render-buildlogs/
+render.yaml
+build.sh
+.buildpacks
+Aptfile
+
+# Otros
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo 
