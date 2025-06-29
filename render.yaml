@@ -1,10 +1,13 @@
 services:
   - type: worker
-    name: telegram-bot
+    name: telegram-qr-bot
     env: python
-    buildCommand: chmod +x build.sh && ./build.sh
+    region: oregon
+    plan: free
+    buildCommand: chmod +x install_dependencies.sh && ./install_dependencies.sh
     startCommand: python run_telegram_bot.py
     runtime: python3
+    autoDeploy: true
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
@@ -12,4 +15,5 @@ services:
         sync: false
       - key: GEMINI_API_KEY
         sync: false
-    plan: free
+      - key: PATH
+        value: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin

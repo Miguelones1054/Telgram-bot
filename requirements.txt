@@ -1,5 +1,7 @@
 pyTelegramBotAPI==4.14.0
 pyzbar==0.1.9
+opencv-python-headless==4.8.0.74
+pyzxing==0.3.1
 Pillow==9.5.0
 numpy==1.24.3
 requests==2.31.0
