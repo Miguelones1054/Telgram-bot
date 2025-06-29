@@ -26,6 +26,21 @@ else:
     print("ADVERTENCIA: No se encontró la API key de Google Gemini en las variables de entorno.")
     print("El análisis avanzado no estará disponible.")
 
+# Intentar instalar zbar si estamos en Linux
+try:
+    import platform
+    if platform.system() == "Linux":
+        print("Detectado sistema Linux, intentando instalar zbar...")
+        import subprocess
+        try:
+            subprocess.check_call(["apt-get", "update"])
+            subprocess.check_call(["apt-get", "install", "-y", "libzbar0", "libzbar-dev"])
+            print("Instalación de zbar completada")
+        except Exception as e:
+            print(f"Error al instalar zbar: {e}")
+except Exception as e:
+    print(f"Error al verificar el sistema: {e}")
+
 # Importar bibliotecas para QR
 qreader_available = False
 pyzbar_available = False
