@@ -125,6 +125,6 @@ if __name__ == "__main__":
         "app:app",
         host="0.0.0.0",
         port=port,
-        reload=True,
+        reload=False,  # Desactivar reload en producción
         log_level="info"
     ) 

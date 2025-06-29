@@ -189,8 +189,7 @@ def decodificar_qr(imagen_bytes):
             # Si no se encontró ningún QR, intentar con una imagen procesada
             try:
                 # Asegurarse de que la imagen es RGB para evitar errores
-                if len(img_array.shape) == 3 and img_array.shape[2] == 3:
-                    import cv2
+                if len(img_array.shape) == 3 and img_array.shape[2] == 3 and cv2_available:
                     img_gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
                     _, img_thresh = cv2.threshold(img_gray, 127, 255, cv2.THRESH_BINARY)
                     
