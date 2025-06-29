@@ -1,8 +1,0 @@
-[phases.setup]
-aptPkgs = ["libzbar0", "zbar-tools", "python3-dev", "python3-pip"]
-
-[phases.install]
-cmds = ["pip install --upgrade pip", "pip install -r requirements.txt"]
-
-[start]
-cmd = "python run_telegram_bot.py" 

@@ -3,7 +3,7 @@ services:
     name: telegram-qr-bot
     env: python
     buildCommand: pip install --upgrade pip && pip install -r requirements.txt
-    startCommand: python main.py
+    startCommand: python qr_bot.py
     envVars:
       - key: TELEGRAM_BOT_TOKEN
         sync: false
