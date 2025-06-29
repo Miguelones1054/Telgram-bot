@@ -41,7 +41,11 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg += f"📱 *Numero Nequi (solo para QR personales):* {resultado.get('celular', 'N/A')}\n"
         if resultado.get('tipo_contenido'):
             msg += f"📝 *Tipo:* {resultado.get('tipo_contenido')}\n"
-        await update.message.reply_text(msg, parse_mode="Markdown")
+        await update.message.reply_text(
+            text=msg,
+            parse_mode="Markdown",
+            reply_to_message_id=update.message.message_id
+        )
 
 if __name__ == "__main__":
     app = Application.builder().token(TELEGRAM_TOKEN).build()
