@@ -1,6 +1,6 @@
 flask==2.3.3
 pillow==10.0.0
-qreader==0.1.4
+qreader==3.16
 pyzbar==0.1.9
 opencv-python-headless==4.8.0.74
 numpy==1.24.3
