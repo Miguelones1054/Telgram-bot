@@ -59,52 +59,46 @@ tiempo_inicio_bot = int(time.time())
 
 # Importar bibliotecas para QR - intentar múltiples opciones
 qr_reader = None
-qreader_available = False
+pyzbar_available = False
 
-# Intentar importar qreader primero
+# Intentar importar pyzbar
 try:
-    from qreader import QReader
-    qr_reader = QReader()
-    qreader_available = True
-    print("Biblioteca qreader cargada correctamente")
+    from pyzbar.pyzbar import decode
+    pyzbar_available = True
+    print("Biblioteca pyzbar cargada correctamente")
 except ImportError:
-    print("Biblioteca qreader no disponible, intentando con pyzbar...")
-    
-    # Intentar con pyzbar como alternativa
-    try:
-        from pyzbar.pyzbar import decode
-        qreader_available = True
-        print("Biblioteca pyzbar cargada correctamente")
-    except ImportError:
-        print("Ni qreader ni pyzbar están disponibles. Instalando dependencias...")
-        qreader_available = False
+    print("Biblioteca pyzbar no disponible, intentando instalarla...")
+    pyzbar_available = False
 
-if not qreader_available:
-    print("No se encontraron bibliotecas para leer QR. Este bot requiere qreader o pyzbar para funcionar.")
+if not pyzbar_available:
+    print("No se encontraron bibliotecas para leer QR. Este bot requiere pyzbar para funcionar.")
     sys.exit(1)
 
-# Función para decodificar QR usando qreader o pyzbar
+# Función para decodificar QR usando pyzbar
 def decodificar_qr(imagen_bytes):
     try:
         # Convertir bytes a imagen
         img = Image.open(BytesIO(imagen_bytes))
         
-        # Si tenemos qreader, usarlo
-        if hasattr(qr_reader, 'detect_and_decode'):
-            img_array = np.array(img)
-            decoded_text = qr_reader.detect_and_decode(image=img_array)
-            
-            if decoded_text and decoded_text[0]:
-                print(f"Contenido del QR (qreader): {decoded_text[0]}")
-                return decoded_text[0]
+        # Usar pyzbar para decodificar
+        decoded_objects = decode(img)
+        for obj in decoded_objects:
+            decoded_text = obj.data.decode('utf-8')
+            print(f"Contenido del QR (pyzbar): {decoded_text}")
+            return decoded_text
         
-        # Si no, usar pyzbar
-        else:
-            decoded_objects = decode(img)
-            for obj in decoded_objects:
-                decoded_text = obj.data.decode('utf-8')
-                print(f"Contenido del QR (pyzbar): {decoded_text}")
-                return decoded_text
+        # Si no se encontró ningún QR, intentar con una imagen procesada
+        # Convertir a escala de grises y aumentar el contraste
+        img_gray = img.convert('L')
+        # Aumentar contraste
+        img_contrast = Image.eval(img_gray, lambda x: 0 if x < 128 else 255)
+        
+        # Intentar nuevamente con la imagen procesada
+        decoded_objects = decode(img_contrast)
+        for obj in decoded_objects:
+            decoded_text = obj.data.decode('utf-8')
+            print(f"Contenido del QR (pyzbar - imagen procesada): {decoded_text}")
+            return decoded_text
         
         return None
     except Exception as e:
@@ -378,7 +372,7 @@ def handle_help(message):
     
     Funcionalidades:
     - Envía una imagen con un código QR y te mostraré su contenido.
-    - El bot utiliza la biblioteca qreader para escanear códigos QR.
+    - El bot utiliza la biblioteca pyzbar para escanear códigos QR.
     - Puede extraer y completar nombres de personas usando IA de Google Gemini.
     - El contenido completo del QR se registra en los logs del servidor.
     """
@@ -406,62 +400,57 @@ def handle_photo(message):
             # Registrar el contenido completo en los logs
             print(f"Contenido del QR: {qr_data}")
             
-            # Intentar extraer nombre
+            # Inicializar variables
             nombre = extraer_nombre(qr_data)
-            
-            # Intentar extraer dirección
             direccion = extraer_direccion(qr_data)
-            
-            # Intentar extraer ciudad
             ciudad = extraer_ciudad(qr_data)
-            
-            # Intentar extraer número de celular
             celular = extraer_celular(qr_data)
+            nombre_completo = nombre
             
-            # Si no se encontró ciudad con el método directo, intentar con Gemini
-            if not ciudad:
-                bot.edit_message_text("Código QR detectado. Analizando información con IA...", 
-                                     message.chat.id, processing_msg.message_id)
-                ciudad = analizar_ciudad_con_gemini(qr_data)
+            # Análisis con IA sin editar mensajes intermedios
+            if not ciudad and GEMINI_API_KEY:
+                try:
+                    ciudad = analizar_ciudad_con_gemini(qr_data)
+                except Exception as e:
+                    print(f"Error al analizar ciudad con Gemini: {e}")
+            
+            # Completar nombre con IA sin editar mensajes intermedios
+            if nombre and GEMINI_API_KEY:
+                try:
+                    nombre_completo = completar_nombre_con_gemini(nombre, qr_data)
+                except Exception as e:
+                    print(f"Error al completar nombre con Gemini: {e}")
+                    nombre_completo = nombre
             
             # Preparar respuesta
             respuesta_partes = []
             
             # Título con emojis
             respuesta_partes.append("🤖✨ *La IA Nequi Alpha ha detectado los siguientes datos en ese QR:* ✨🤖")
-            
-            # Añadir línea en blanco después del título
             respuesta_partes.append("")
             
-            # Si encontramos un nombre, intentar completarlo con Gemini
-            if nombre:
-                bot.edit_message_text("Código QR detectado. Analizando información con IA...", 
-                                     message.chat.id, processing_msg.message_id)
-                nombre_completo = completar_nombre_con_gemini(nombre, qr_data)
+            # Añadir información encontrada
+            if nombre_completo:
                 respuesta_partes.append(f"✅ Nombre detectado: {nombre_completo}")
-                respuesta_partes.append("")  # Línea en blanco para separación
+                respuesta_partes.append("")
             
-            # Si encontramos una dirección
             if direccion:
                 respuesta_partes.append(f"💠 Dirección detectada: {direccion}")
-                respuesta_partes.append("")  # Línea en blanco para separación
+                respuesta_partes.append("")
             
-            # Si encontramos una ciudad
             if ciudad:
                 respuesta_partes.append(f"🏙️ Ciudad: {ciudad}")
-                respuesta_partes.append("")  # Línea en blanco para separación
+                respuesta_partes.append("")
             
-            # Si encontramos un número de celular
             if celular:
                 respuesta_partes.append(f"📱 Celular: {celular}")
-                respuesta_partes.append("")  # Línea en blanco para separación
+                respuesta_partes.append("")
             
             # Si no encontramos ninguna información relevante
-            if not nombre and not direccion and not ciudad and not celular:
-                # Identificar el tipo de contenido
+            if not nombre_completo and not direccion and not ciudad and not celular:
                 tipo_contenido = identificar_tipo_contenido(qr_data)
                 respuesta_partes.append(f"ℹ️ Tipo de contenido: {tipo_contenido}")
-                respuesta_partes.append("")  # Línea en blanco para separación
+                respuesta_partes.append("")
             
             # Eliminar la última línea en blanco si existe
             if respuesta_partes and respuesta_partes[-1] == "":
@@ -470,15 +459,43 @@ def handle_photo(message):
             # Unir todas las partes de la respuesta
             respuesta = "\n".join(respuesta_partes)
             
-            # Mostrar respuesta al usuario
-            bot.edit_message_text(respuesta, message.chat.id, processing_msg.message_id, parse_mode="Markdown")
+            # Eliminar el mensaje de procesamiento y enviar uno nuevo
+            try:
+                bot.delete_message(message.chat.id, processing_msg.message_id)
+                bot.send_message(message.chat.id, respuesta, parse_mode="Markdown")
+            except Exception as e:
+                print(f"Error al enviar respuesta final: {e}")
+                # Si falla la eliminación, intentar editar el mensaje existente
+                try:
+                    bot.edit_message_text(respuesta, message.chat.id, processing_msg.message_id, parse_mode="Markdown")
+                except Exception as inner_e:
+                    print(f"Error al editar mensaje: {inner_e}")
         else:
             # No responder si no se detecta un QR
             # Eliminar el mensaje de procesamiento
             bot.delete_message(message.chat.id, processing_msg.message_id)
     except Exception as e:
         print(f"Error al procesar la imagen: {e}")
-        # No responder en caso de error
+        # Intentar notificar al usuario sobre el error
+        try:
+            # Si hay un mensaje de procesamiento, intentar eliminarlo y enviar uno nuevo
+            if 'processing_msg' in locals() and processing_msg:
+                try:
+                    bot.delete_message(message.chat.id, processing_msg.message_id)
+                except:
+                    pass
+                bot.send_message(
+                    message.chat.id,
+                    "❌ Error al procesar la imagen. Por favor, asegúrate de que la imagen contiene un código QR válido y vuelve a intentarlo."
+                )
+            else:
+                # Si no hay mensaje de procesamiento, enviar uno nuevo
+                bot.reply_to(
+                    message,
+                    "❌ Error al procesar la imagen. Por favor, asegúrate de que la imagen contiene un código QR válido y vuelve a intentarlo."
+                )
+        except Exception as inner_e:
+            print(f"Error al notificar al usuario: {inner_e}")
 
 # Añadir soporte para webhook
 @bot.message_handler(func=lambda message: True, content_types=['text'])
