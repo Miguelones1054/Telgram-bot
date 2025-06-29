@@ -1,10 +1,9 @@
-flask==2.2.3
-pillow==9.5.0
-qreader==3.16
+fastapi==0.104.1
+uvicorn==0.24.0
+python-multipart==0.0.6
+pillow==11.2.1
 pyzbar==0.1.9
-opencv-python-headless==4.7.0.72
-numpy==1.23.5
+opencv-python-headless==4.8.1.78
+numpy==1.25.2
 python-dotenv==1.0.0
 google-generativeai==0.3.1
-werkzeug==2.2.3
-gunicorn==21.2.0

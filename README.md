@@ -1,87 +1,72 @@
-# Escáner de Códigos QR con Extracción de Datos
+# QR Scanner Bot - FastAPI
 
-Esta aplicación web permite escanear códigos QR y extraer información relevante como nombres, direcciones, ciudades y números de teléfono.
+Bot de Telegram para escanear códigos QR y procesar información usando FastAPI.
 
-## Funcionalidades
+## 🚀 Características
 
-- Lectura de códigos QR desde imágenes subidas
-- Captura de códigos QR usando la cámara del dispositivo
-- Extracción de nombres usando expresiones regulares
-- Extracción de direcciones y números de teléfono
-- Mejora de la detección usando la API de Google Gemini (opcional)
-- Interfaz web moderna y responsive
+- **FastAPI**: Framework moderno y rápido para APIs
+- **Escaneo de QR**: Múltiples bibliotecas de soporte (qreader, pyzbar, OpenCV)
+- **Procesamiento de imágenes**: Análisis avanzado con Google Gemini AI
+- **API REST**: Endpoints para integración con otros servicios
+- **Interfaz web**: Interfaz de usuario para subir y procesar imágenes
 
-## Tecnologías utilizadas
+## 📦 Instalación
 
-- Python con Flask para el backend
-- HTML, CSS y JavaScript para el frontend
-- Bootstrap para el diseño responsive
-- pyzbar y OpenCV para la lectura de códigos QR
-- Google Gemini API para mejorar la detección (opcional)
-
-## Requisitos
-
-- Python 3.9 o superior
-- Bibliotecas especificadas en requirements.txt
-- En sistemas Linux, puede necesitar instalar libzbar: `apt-get install libzbar0 zbar-tools`
-
-## Instalación
-
-1. Clonar el repositorio:
-```
-git clone https://github.com/tu-usuario/escaner-qr.git
-cd escaner-qr
-```
-
-2. Crear un entorno virtual e instalar dependencias:
-```
-python -m venv venv
-source venv/bin/activate  # En Windows: venv\Scripts\activate
+```bash
+# Instalar dependencias
 pip install -r requirements.txt
+
+# Ejecutar en desarrollo
+python app.py
+
+# O ejecutar directamente con uvicorn
+uvicorn app:app --reload --host=0.0.0.0 --port=8000
 ```
 
-3. Configurar variables de entorno (opcional):
-Crea un archivo `.env` en el directorio raíz con:
-```
+## 🔧 Configuración
+
+1. Crea un archivo `.env` con tus variables de entorno:
+```env
 GEMINI_API_KEY=tu_api_key_de_google_gemini
 ```
 
-## Uso
+## 📡 Endpoints
 
-1. Iniciar la aplicación:
+- `GET /`: Interfaz web principal
+- `POST /upload`: Subir y procesar imagen con QR
+- `POST /api/scan`: API para escanear QR (sin interfaz)
+- `GET /health`: Verificación de salud del servicio
+- `GET /docs`: Documentación automática de la API
+
+## 🚀 Despliegue
+
+### Heroku
+```bash
+git push heroku main
 ```
-python app.py
+
+### Local
+```bash
+python uvicorn_config.py
 ```
 
-2. Abrir en el navegador:
-```
-http://localhost:5000
-```
+## 📊 Ventajas de FastAPI
 
-3. Usar la aplicación:
-   - Subir una imagen con un código QR, o
-   - Usar la cámara para escanear un código QR en tiempo real
+- ⚡ **Rendimiento**: Hasta 3x más rápido que Flask
+- 🔄 **Asíncrono**: Mejor manejo de conexiones concurrentes
+- 📝 **Documentación automática**: Swagger/OpenAPI incluido
+- 🛡️ **Validación automática**: Type hints y Pydantic
+- 🎯 **Optimizado para APIs**: Diseñado específicamente para servicios web
 
-## Despliegue en Render
+## 🔍 Uso
 
-1. Crea una cuenta en [Render](https://render.com/)
-2. Crea un nuevo Web Service
-3. Conecta tu repositorio de GitHub
-4. Configura:
-   - Environment: Python
-   - Build Command: `pip install -r requirements.txt`
-   - Start Command: `gunicorn app:app`
-   - Variables de entorno:
-     - `GEMINI_API_KEY`: Tu API key de Google Gemini (opcional)
+1. Abre `http://localhost:8000` en tu navegador
+2. Sube una imagen con código QR
+3. El sistema procesará la imagen y extraerá la información
+4. Los resultados se mostrarán en la interfaz web
 
-## API
+## 📝 Notas
 
-La aplicación ofrece un endpoint API para integración con otros sistemas:
-
-- `POST /api/scan`: Envía una imagen para escanear un código QR
-  - Parámetro: `file` (archivo de imagen)
-  - Respuesta: JSON con la información extraída
-
-## Licencia
-
-Este proyecto está bajo la Licencia MIT.
+- El puerto por defecto cambió de 5000 (Flask) a 8000 (FastAPI)
+- La documentación automática está disponible en `/docs`
+- El endpoint de salud está en `/health`

@@ -1,89 +1,130 @@
 import os
 import io
 import base64
-from flask import Flask, request, jsonify, render_template, redirect, url_for
-from werkzeug.utils import secure_filename
+from typing import Optional
+from fastapi import FastAPI, File, UploadFile, HTTPException, Form
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from fastapi import Request
 from qr_scanner import procesar_imagen_qr
+import uvicorn
 
-app = Flask(__name__)
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB máximo
-app.config['UPLOAD_FOLDER'] = 'uploads'
+app = FastAPI(
+    title="QR Scanner API",
+    description="API para escanear códigos QR y procesar información",
+    version="1.0.0"
+)
+
+# Configuración
+app.config = {
+    'MAX_CONTENT_LENGTH': 16 * 1024 * 1024,  # 16 MB máximo
+    'UPLOAD_FOLDER': 'uploads'
+}
 
 # Asegurarse de que el directorio de uploads exista
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
+# Configurar templates
+templates = Jinja2Templates(directory="templates")
+
 # Extensiones de archivo permitidas
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 
-def allowed_file(filename):
+def allowed_file(filename: str) -> bool:
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-@app.route('/')
-def index():
-    return render_template('index.html')
+@app.get("/", response_class=HTMLResponse)
+async def index(request: Request):
+    """Página principal con interfaz web"""
+    return templates.TemplateResponse("index.html", {"request": request})
 
-@app.route('/upload', methods=['POST'])
-def upload_file():
-    # Verificar si se envió un archivo
-    if 'file' not in request.files:
-        return jsonify({'error': 'No se envió ningún archivo'}), 400
-    
-    file = request.files['file']
-    
-    # Si el usuario no selecciona un archivo
-    if file.filename == '':
-        return jsonify({'error': 'No se seleccionó ningún archivo'}), 400
+@app.post("/upload")
+async def upload_file(file: UploadFile = File(...)):
+    """
+    Endpoint para subir y procesar archivos de imagen con códigos QR
+    """
+    # Verificar que se envió un archivo
+    if not file:
+        raise HTTPException(status_code=400, detail="No se envió ningún archivo")
     
     # Verificar que el archivo sea una imagen permitida
-    if file and allowed_file(file.filename):
+    if not allowed_file(file.filename):
+        raise HTTPException(status_code=400, detail="Tipo de archivo no permitido")
+    
+    try:
         # Leer el archivo como bytes
-        file_bytes = file.read()
+        file_bytes = await file.read()
         
-        try:
-            # Procesar la imagen
-            resultado = procesar_imagen_qr(file_bytes)
-            
-            # Si hay un error, devolverlo
-            if 'error' in resultado:
-                return jsonify(resultado), 400
-            
-            # Convertir la imagen a base64 para mostrarla en el resultado
-            encoded_image = base64.b64encode(file_bytes).decode('utf-8')
-            resultado['imagen'] = encoded_image
-            
-            return jsonify(resultado)
-        except Exception as e:
-            return jsonify({'error': f'Error al procesar la imagen: {str(e)}'}), 500
-    
-    return jsonify({'error': 'Tipo de archivo no permitido'}), 400
+        # Verificar el tamaño del archivo
+        if len(file_bytes) > app.config['MAX_CONTENT_LENGTH']:
+            raise HTTPException(status_code=400, detail="Archivo demasiado grande")
+        
+        # Procesar la imagen
+        resultado = procesar_imagen_qr(file_bytes)
+        
+        # Si hay un error, devolverlo
+        if 'error' in resultado:
+            raise HTTPException(status_code=400, detail=resultado['error'])
+        
+        # Convertir la imagen a base64 para mostrarla en el resultado
+        encoded_image = base64.b64encode(file_bytes).decode('utf-8')
+        resultado['imagen'] = encoded_image
+        
+        return JSONResponse(content=resultado)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al procesar la imagen: {str(e)}")
 
-@app.route('/api/scan', methods=['POST'])
-def api_scan():
-    # Verificar si se envió un archivo
-    if 'file' not in request.files:
-        return jsonify({'error': 'No se envió ningún archivo'}), 400
-    
-    file = request.files['file']
-    
-    # Si el usuario no selecciona un archivo
-    if file.filename == '':
-        return jsonify({'error': 'No se seleccionó ningún archivo'}), 400
+@app.post("/api/scan")
+async def api_scan(file: UploadFile = File(...)):
+    """
+    API endpoint para escanear códigos QR (sin interfaz web)
+    """
+    # Verificar que se envió un archivo
+    if not file:
+        raise HTTPException(status_code=400, detail="No se envió ningún archivo")
     
     # Verificar que el archivo sea una imagen permitida
-    if file and allowed_file(file.filename):
-        # Leer el archivo como bytes
-        file_bytes = file.read()
-        
-        try:
-            # Procesar la imagen
-            resultado = procesar_imagen_qr(file_bytes)
-            return jsonify(resultado)
-        except Exception as e:
-            return jsonify({'error': f'Error al procesar la imagen: {str(e)}'}), 500
+    if not allowed_file(file.filename):
+        raise HTTPException(status_code=400, detail="Tipo de archivo no permitido")
     
-    return jsonify({'error': 'Tipo de archivo no permitido'}), 400
+    try:
+        # Leer el archivo como bytes
+        file_bytes = await file.read()
+        
+        # Verificar el tamaño del archivo
+        if len(file_bytes) > app.config['MAX_CONTENT_LENGTH']:
+            raise HTTPException(status_code=400, detail="Archivo demasiado grande")
+        
+        # Procesar la imagen
+        resultado = procesar_imagen_qr(file_bytes)
+        
+        # Si hay un error, devolverlo
+        if 'error' in resultado:
+            raise HTTPException(status_code=400, detail=resultado['error'])
+        
+        return JSONResponse(content=resultado)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al procesar la imagen: {str(e)}")
 
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=True) 
+@app.get("/health")
+async def health_check():
+    """Endpoint de verificación de salud del servicio"""
+    return {"status": "healthy", "service": "QR Scanner API"}
+
+if __name__ == "__main__":
+    port = int(os.environ.get('PORT', 8000))
+    uvicorn.run(
+        "app:app",
+        host="0.0.0.0",
+        port=port,
+        reload=True,
+        log_level="info"
+    ) 
