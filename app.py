@@ -60,6 +60,12 @@ async def upload_file(file: UploadFile = File(...)):
         file_bytes = await file.read()
         print(f"[INFO] Archivo recibido: {file.filename}, tamaño: {len(file_bytes)} bytes")
         
+        # Guardar la imagen recibida para depuración
+        tmp_path = f"/tmp/recibido_{file.filename}"
+        with open(tmp_path, "wb") as f:
+            f.write(file_bytes)
+        print(f"[DEBUG] Imagen guardada en {tmp_path}")
+        
         # Verificar el tamaño del archivo
         if len(file_bytes) > app.config['MAX_CONTENT_LENGTH']:
             print(f"[ERROR] Archivo demasiado grande: {len(file_bytes)} bytes")
@@ -105,6 +111,12 @@ async def api_scan(file: UploadFile = File(...)):
         # Leer el archivo como bytes
         file_bytes = await file.read()
         print(f"[INFO] Archivo recibido (API): {file.filename}, tamaño: {len(file_bytes)} bytes")
+        
+        # Guardar la imagen recibida para depuración
+        tmp_path = f"/tmp/recibido_{file.filename}"
+        with open(tmp_path, "wb") as f:
+            f.write(file_bytes)
+        print(f"[DEBUG] Imagen guardada en {tmp_path} (API)")
         
         # Verificar el tamaño del archivo
         if len(file_bytes) > app.config['MAX_CONTENT_LENGTH']:

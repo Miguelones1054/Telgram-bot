@@ -32,6 +32,7 @@ def decodificar_qr(imagen_bytes):
         # Convertir bytes a imagen
         img = Image.open(BytesIO(imagen_bytes))
         img_array = np.array(img)
+        print(f"[DEBUG] img_array.shape: {img_array.shape}, dtype: {img_array.dtype}")
 
         # Si la imagen es RGBA, convertirla a RGB
         if len(img_array.shape) == 3 and img_array.shape[2] == 4:
