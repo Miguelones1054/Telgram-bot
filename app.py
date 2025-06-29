@@ -35,10 +35,12 @@ app = Flask(__name__)
 def webhook():
     if request.headers.get('content-type') == 'application/json':
         json_string = request.get_data().decode('utf-8')
+        logger.info(f"Webhook recibido: {json_string[:100]}...")  # Log primeros 100 caracteres
         update = types.Update.de_json(json_string)
         bot.process_new_updates([update])
         return ''
     else:
+        logger.warning(f"Recibida solicitud con content-type incorrecto: {request.headers.get('content-type')}")
         abort(403)
 
 # Ruta para verificar que el servidor está en funcionamiento
@@ -51,7 +53,8 @@ def health_check():
 def set_webhook():
     render_url = os.environ.get('RENDER_EXTERNAL_URL')
     if not render_url:
-        return 'Error: No se encontró la URL de Render'
+        logger.error("No se encontró RENDER_EXTERNAL_URL en las variables de entorno")
+        return 'Error: No se encontró la URL de Render. Configurando con URL manual...'
     
     webhook_url = f"{render_url}/{TELEGRAM_TOKEN}"
     webhook_url = webhook_url.replace('http://', 'https://')  # Forzar HTTPS
@@ -64,10 +67,34 @@ def set_webhook():
         # Configurar el nuevo webhook
         bot.set_webhook(url=webhook_url)
         logger.info(f"Webhook configurado en: {webhook_url}")
-        return f'Webhook configurado correctamente en: {webhook_url}'
+        
+        # Verificar que el webhook se configuró correctamente
+        webhook_info = bot.get_webhook_info()
+        logger.info(f"Información del webhook: URL={webhook_info.url}, pendientes={webhook_info.pending_update_count}")
+        
+        return f'Webhook configurado correctamente en: {webhook_url}<br>Información: {webhook_info.url}'
     except Exception as e:
         logger.error(f"Error al configurar webhook: {e}")
         return f'Error al configurar webhook: {e}'
+
+# Obtener información del webhook
+@app.route('/webhook_info', methods=['GET'])
+def webhook_info():
+    try:
+        info = bot.get_webhook_info()
+        result = {
+            "url": info.url,
+            "has_custom_certificate": info.has_custom_certificate,
+            "pending_update_count": info.pending_update_count,
+            "last_error_date": info.last_error_date,
+            "last_error_message": info.last_error_message,
+            "max_connections": info.max_connections
+        }
+        logger.info(f"Información del webhook: {result}")
+        return result
+    except Exception as e:
+        logger.error(f"Error al obtener información del webhook: {e}")
+        return f'Error: {e}'
 
 # Eliminar webhook
 @app.route('/remove_webhook', methods=['GET'])
@@ -89,12 +116,35 @@ if __name__ == "__main__":
     if render_url:
         webhook_url = f"{render_url}/{TELEGRAM_TOKEN}"
         webhook_url = webhook_url.replace('http://', 'https://')
+        
+        # Eliminar cualquier webhook existente
+        logger.info("Eliminando webhooks existentes...")
         bot.remove_webhook()
         time.sleep(1)
+        
+        # Configurar el nuevo webhook
+        logger.info(f"Configurando webhook en: {webhook_url}")
         bot.set_webhook(url=webhook_url)
-        logger.info(f"Webhook configurado en: {webhook_url}")
+        
+        # Verificar la configuración
+        webhook_info = bot.get_webhook_info()
+        logger.info(f"Webhook configurado: URL={webhook_info.url}, pendientes={webhook_info.pending_update_count}")
     else:
-        logger.warning("No se encontró la URL de Render, no se pudo configurar el webhook automáticamente")
+        # Si no tenemos la URL de Render, intentar usar una URL genérica
+        logger.warning("No se encontró la URL de Render, intentando configurar webhook manualmente...")
+        
+        # Intentar obtener la URL de la variable de entorno WEBHOOK_URL
+        webhook_url = os.environ.get('WEBHOOK_URL')
+        if webhook_url:
+            webhook_url = f"{webhook_url}/{TELEGRAM_TOKEN}"
+            webhook_url = webhook_url.replace('http://', 'https://')
+            
+            bot.remove_webhook()
+            time.sleep(1)
+            bot.set_webhook(url=webhook_url)
+            logger.info(f"Webhook configurado manualmente en: {webhook_url}")
+        else:
+            logger.error("No se pudo configurar el webhook automáticamente. Configúralo manualmente visitando /set_webhook")
     
     # Iniciar servidor
     logger.info(f"Iniciando servidor en el puerto {port}...")

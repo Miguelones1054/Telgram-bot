@@ -552,14 +552,22 @@ def handle_photo(message):
         except Exception as inner_e:
             print(f"Error al notificar al usuario: {inner_e}")
 
-# Añadir soporte para webhook
-@bot.message_handler(func=lambda message: True, content_types=['text'])
-def webhook_handler(message):
+# Manejador para mensajes de texto
+@bot.message_handler(content_types=['text'])
+def handle_text(message):
     # Verificar si el mensaje es antiguo
     if message.date < tiempo_inicio_bot:
         return
-    # No responder a mensajes de texto
-    pass
+    
+    # Responder a mensajes de texto
+    if message.text.lower() == 'hola':
+        bot.reply_to(message, "¡Hola! Soy un bot lector de códigos QR. Envíame una imagen con un código QR para leerla.")
+    elif message.text.lower() == 'ayuda' or message.text.lower() == '/help':
+        handle_help(message)
+    elif message.text.lower() == 'start' or message.text.lower() == '/start':
+        handle_start(message)
+    else:
+        bot.reply_to(message, "Envíame una imagen con un código QR para leerla. Escribe 'ayuda' para más información.")
 
 # Solo iniciar el polling si se ejecuta directamente
 if __name__ == "__main__":
