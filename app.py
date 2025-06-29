@@ -47,18 +47,22 @@ async def upload_file(file: UploadFile = File(...)):
     """
     # Verificar que se envió un archivo
     if not file:
+        print("[ERROR] No se envió ningún archivo")
         raise HTTPException(status_code=400, detail="No se envió ningún archivo")
     
     # Verificar que el archivo sea una imagen permitida
     if not allowed_file(file.filename):
+        print(f"[ERROR] Tipo de archivo no permitido: {file.filename}")
         raise HTTPException(status_code=400, detail="Tipo de archivo no permitido")
     
     try:
         # Leer el archivo como bytes
         file_bytes = await file.read()
+        print(f"[INFO] Archivo recibido: {file.filename}, tamaño: {len(file_bytes)} bytes")
         
         # Verificar el tamaño del archivo
         if len(file_bytes) > app.config['MAX_CONTENT_LENGTH']:
+            print(f"[ERROR] Archivo demasiado grande: {len(file_bytes)} bytes")
             raise HTTPException(status_code=400, detail="Archivo demasiado grande")
         
         # Procesar la imagen
@@ -66,17 +70,20 @@ async def upload_file(file: UploadFile = File(...)):
         
         # Si hay un error, devolverlo
         if 'error' in resultado:
+            print(f"[ERROR] {resultado['error']}")
             raise HTTPException(status_code=400, detail=resultado['error'])
         
         # Convertir la imagen a base64 para mostrarla en el resultado
         encoded_image = base64.b64encode(file_bytes).decode('utf-8')
         resultado['imagen'] = encoded_image
-        
+        print(f"[SUCCESS] QR procesado correctamente para {file.filename}")
         return JSONResponse(content=resultado)
         
-    except HTTPException:
+    except HTTPException as e:
+        print(f"[HTTPException] {e.detail}")
         raise
     except Exception as e:
+        print(f"[ERROR 500] Error al procesar la imagen: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error al procesar la imagen: {str(e)}")
 
 @app.post("/api/scan")
@@ -86,18 +93,22 @@ async def api_scan(file: UploadFile = File(...)):
     """
     # Verificar que se envió un archivo
     if not file:
+        print("[ERROR] No se envió ningún archivo (API)")
         raise HTTPException(status_code=400, detail="No se envió ningún archivo")
     
     # Verificar que el archivo sea una imagen permitida
     if not allowed_file(file.filename):
+        print(f"[ERROR] Tipo de archivo no permitido (API): {file.filename}")
         raise HTTPException(status_code=400, detail="Tipo de archivo no permitido")
     
     try:
         # Leer el archivo como bytes
         file_bytes = await file.read()
+        print(f"[INFO] Archivo recibido (API): {file.filename}, tamaño: {len(file_bytes)} bytes")
         
         # Verificar el tamaño del archivo
         if len(file_bytes) > app.config['MAX_CONTENT_LENGTH']:
+            print(f"[ERROR] Archivo demasiado grande (API): {len(file_bytes)} bytes")
             raise HTTPException(status_code=400, detail="Archivo demasiado grande")
         
         # Procesar la imagen
@@ -105,13 +116,17 @@ async def api_scan(file: UploadFile = File(...)):
         
         # Si hay un error, devolverlo
         if 'error' in resultado:
+            print(f"[ERROR] {resultado['error']} (API)")
             raise HTTPException(status_code=400, detail=resultado['error'])
         
+        print(f"[SUCCESS] QR procesado correctamente para {file.filename} (API)")
         return JSONResponse(content=resultado)
         
-    except HTTPException:
+    except HTTPException as e:
+        print(f"[HTTPException] {e.detail} (API)")
         raise
     except Exception as e:
+        print(f"[ERROR 500] Error al procesar la imagen (API): {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error al procesar la imagen: {str(e)}")
 
 @app.get("/health")
