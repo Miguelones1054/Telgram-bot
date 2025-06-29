@@ -2,12 +2,12 @@ services:
   - type: worker
     name: telegram-bot
     env: python
-    buildCommand: pip install -r requirements.txt
+    buildCommand: chmod +x build.sh && ./build.sh
     startCommand: python run_telegram_bot.py
     runtime: python3
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11.0
+        value: 3.11.9
       - key: TELEGRAM_BOT_TOKEN
         sync: false
       - key: GEMINI_API_KEY

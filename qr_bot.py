@@ -35,18 +35,14 @@ GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 
 # Verificar token de Telegram
 if not TELEGRAM_TOKEN:
-    print("No se encontró el token de Telegram en las variables de entorno.")
-    TELEGRAM_TOKEN = input("Por favor, introduce el token de tu bot de Telegram: ")
-    if not TELEGRAM_TOKEN:
-        print("No se proporcionó un token. Saliendo...")
-        sys.exit(1)
+    print("ERROR: No se encontró el token de Telegram en las variables de entorno.")
+    print("Asegúrate de configurar TELEGRAM_BOT_TOKEN en las variables de entorno de Render.")
+    sys.exit(1)
 
 # Verificar API key de Gemini
 if not GEMINI_API_KEY:
-    print("No se encontró la API key de Google Gemini en las variables de entorno.")
-    GEMINI_API_KEY = input("Por favor, introduce tu API key de Google Gemini: ")
-    if not GEMINI_API_KEY:
-        print("No se proporcionó una API key para Gemini. El análisis avanzado no estará disponible.")
+    print("ADVERTENCIA: No se encontró la API key de Google Gemini en las variables de entorno.")
+    print("El análisis avanzado no estará disponible.")
 else:
     # Configurar Gemini
     genai.configure(api_key=GEMINI_API_KEY)
@@ -57,8 +53,7 @@ bot = telebot.TeleBot(TELEGRAM_TOKEN)
 # Registrar el tiempo de inicio del bot
 tiempo_inicio_bot = int(time.time())
 
-# Importar bibliotecas para QR - intentar múltiples opciones
-qr_reader = None
+# Importar bibliotecas para QR
 pyzbar_available = False
 
 # Intentar importar pyzbar
@@ -67,11 +62,25 @@ try:
     pyzbar_available = True
     print("Biblioteca pyzbar cargada correctamente")
 except ImportError:
-    print("Biblioteca pyzbar no disponible, intentando instalarla...")
-    pyzbar_available = False
+    print("Error: Biblioteca pyzbar no disponible.")
+    print("Intentando instalar dependencias...")
+    
+    # Intentar instalar pyzbar automáticamente
+    try:
+        import subprocess
+        subprocess.check_call(["pip", "install", "pyzbar"])
+        from pyzbar.pyzbar import decode
+        pyzbar_available = True
+        print("Biblioteca pyzbar instalada y cargada correctamente")
+    except Exception as e:
+        print(f"Error al instalar pyzbar: {e}")
+        print("Es posible que falten dependencias del sistema como libzbar0.")
+        pyzbar_available = False
 
 if not pyzbar_available:
-    print("No se encontraron bibliotecas para leer QR. Este bot requiere pyzbar para funcionar.")
+    print("Error crítico: No se encontraron bibliotecas para leer QR.")
+    print("Este bot requiere pyzbar para funcionar.")
+    print("En sistemas Linux, ejecuta: apt-get install libzbar0 zbar-tools")
     sys.exit(1)
 
 # Función para decodificar QR usando pyzbar
