@@ -1,10 +1,15 @@
 services:
-  - type: web
-    name: telegram-qr-bot
+  - type: worker
+    name: telegram-bot
     env: python
-    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
-    startCommand: python qr_bot.py
+    buildCommand: pip install -r requirements.txt
+    startCommand: python run_telegram_bot.py
+    runtime: python3
     envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
       - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: GEMINI_API_KEY
         sync: false
     plan: free
