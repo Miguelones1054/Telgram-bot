@@ -2,12 +2,8 @@ import os
 import sys
 import re
 import urllib.parse
-from io import BytesIO
-import numpy as np
-from PIL import Image
 import google.generativeai as genai
 from dotenv import load_dotenv
-import cv2
 import requests
 
 # Cargar variables de entorno
