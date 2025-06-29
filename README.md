@@ -1,64 +1,87 @@
-# Bot de Telegram para Lectura de Códigos QR
+# Escáner de Códigos QR con Extracción de Datos
 
-Este proyecto contiene un bot de Telegram para leer códigos QR y extraer nombres de personas.
+Esta aplicación web permite escanear códigos QR y extraer información relevante como nombres, direcciones, ciudades y números de teléfono.
 
 ## Funcionalidades
 
-- Lectura de códigos QR desde imágenes
+- Lectura de códigos QR desde imágenes subidas
+- Captura de códigos QR usando la cámara del dispositivo
 - Extracción de nombres usando expresiones regulares
-- Mejora de la detección usando la API de Google Gemini
-- Soporte para modos polling y webhook
+- Extracción de direcciones y números de teléfono
+- Mejora de la detección usando la API de Google Gemini (opcional)
+- Interfaz web moderna y responsive
+
+## Tecnologías utilizadas
+
+- Python con Flask para el backend
+- HTML, CSS y JavaScript para el frontend
+- Bootstrap para el diseño responsive
+- pyzbar y OpenCV para la lectura de códigos QR
+- Google Gemini API para mejorar la detección (opcional)
+
+## Requisitos
+
+- Python 3.9 o superior
+- Bibliotecas especificadas en requirements.txt
+- En sistemas Linux, puede necesitar instalar libzbar: `apt-get install libzbar0 zbar-tools`
+
+## Instalación
+
+1. Clonar el repositorio:
+```
+git clone https://github.com/tu-usuario/escaner-qr.git
+cd escaner-qr
+```
+
+2. Crear un entorno virtual e instalar dependencias:
+```
+python -m venv venv
+source venv/bin/activate  # En Windows: venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+3. Configurar variables de entorno (opcional):
+Crea un archivo `.env` en el directorio raíz con:
+```
+GEMINI_API_KEY=tu_api_key_de_google_gemini
+```
+
+## Uso
+
+1. Iniciar la aplicación:
+```
+python app.py
+```
+
+2. Abrir en el navegador:
+```
+http://localhost:5000
+```
+
+3. Usar la aplicación:
+   - Subir una imagen con un código QR, o
+   - Usar la cámara para escanear un código QR en tiempo real
 
 ## Despliegue en Render
 
-Este proyecto está configurado para ser desplegado en Render:
-
-### Opción 1: Despliegue automático con Blueprint
-
 1. Crea una cuenta en [Render](https://render.com/)
-2. Conecta tu repositorio de GitHub
-3. Haz clic en "Blueprint" y selecciona este repositorio
-4. Render desplegará automáticamente el bot según la configuración en `render.yaml`
-
-### Opción 2: Despliegue manual
-
-Puedes elegir entre dos modos de funcionamiento:
-
-#### Opción A: Bot con Polling (Background Worker)
-1. Crea un nuevo "Background Worker" en Render
-2. Conecta tu repositorio
-3. Configura:
+2. Crea un nuevo Web Service
+3. Conecta tu repositorio de GitHub
+4. Configura:
    - Environment: Python
    - Build Command: `pip install -r requirements.txt`
-   - Start Command: `python run_telegram_bot.py`
+   - Start Command: `gunicorn app:app`
    - Variables de entorno:
-     - `TELEGRAM_BOT_TOKEN`: Tu token del bot de Telegram
-     - `GEMINI_API_KEY`: Tu API key de Google Gemini
+     - `GEMINI_API_KEY`: Tu API key de Google Gemini (opcional)
 
-#### Opción B: Bot con Webhook (Web Service)
-1. Crea un nuevo "Web Service" en Render
-2. Conecta el mismo repositorio
-3. Configura:
-   - Environment: Python
-   - Build Command: `pip install -r requirements.txt`
-   - Start Command: `python qr_bot.py`
-   - Variables de entorno:
-     - `TELEGRAM_BOT_TOKEN`: Tu token del bot de Telegram
-     - `GEMINI_API_KEY`: Tu API key de Google Gemini
+## API
 
-### Configuración del Webhook de Telegram
+La aplicación ofrece un endpoint API para integración con otros sistemas:
 
-Si eliges la opción de webhook, una vez desplegado el servicio, configura el webhook con:
-```
-https://api.telegram.org/bot{TU_TOKEN}/setWebhook?url=https://{TU_WEBHOOK_URL}/webhook
-```
+- `POST /api/scan`: Envía una imagen para escanear un código QR
+  - Parámetro: `file` (archivo de imagen)
+  - Respuesta: JSON con la información extraída
 
-## Variables de Entorno Requeridas
+## Licencia
 
-- `TELEGRAM_BOT_TOKEN`: Token del bot de Telegram
-- `GEMINI_API_KEY`: API key de Google Gemini (opcional, para mejorar la detección)
-
-## ¿Qué opción elegir?
-
-- **Polling (Background Worker)**: Más simple, pero consume más recursos. Ideal para bots con poco tráfico.
-- **Webhook (Web Service)**: Más eficiente, solo se activa cuando recibe mensajes. Recomendado para producción.
+Este proyecto está bajo la Licencia MIT.

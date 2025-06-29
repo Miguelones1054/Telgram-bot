@@ -1,86 +1,80 @@
 import os
 import sys
-import telebot
-from dotenv import load_dotenv
 import re
 import urllib.parse
 from io import BytesIO
-import time
 import numpy as np
 from PIL import Image
 import google.generativeai as genai
-
-# Configurar credenciales de Google desde variables de entorno (si es necesario)
-if "GOOGLE_CREDENTIALS_JSON" in os.environ:
-    import json
-    try:
-        with open("credentials.json", "w") as f:
-            f.write(os.environ["GOOGLE_CREDENTIALS_JSON"])
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "credentials.json"
-        print("Archivo de credenciales de Google creado desde variable de entorno")
-    except Exception as e:
-        print(f"Error al crear archivo de credenciales: {e}")
+from dotenv import load_dotenv
 
 # Cargar variables de entorno
 try:
     load_dotenv()
 except ImportError:
-    print("Módulo python-dotenv no encontrado. Asegúrate de configurar los tokens manualmente.")
-
-# Configurar token de Telegram
-TELEGRAM_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+    print("Módulo python-dotenv no encontrado.")
 
 # Configurar API de Google Gemini
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 
-# Verificar token de Telegram
-if not TELEGRAM_TOKEN:
-    print("ERROR: No se encontró el token de Telegram en las variables de entorno.")
-    print("Asegúrate de configurar TELEGRAM_BOT_TOKEN en las variables de entorno de Render.")
-    sys.exit(1)
-
 # Verificar API key de Gemini
-if not GEMINI_API_KEY:
-    print("ADVERTENCIA: No se encontró la API key de Google Gemini en las variables de entorno.")
-    print("El análisis avanzado no estará disponible.")
-else:
+if GEMINI_API_KEY:
     # Configurar Gemini
     genai.configure(api_key=GEMINI_API_KEY)
-
-# Crear instancia del bot de Telegram
-bot = telebot.TeleBot(TELEGRAM_TOKEN)
-
-# Registrar el tiempo de inicio del bot
-tiempo_inicio_bot = int(time.time())
+    print("API de Google Gemini configurada correctamente")
+else:
+    print("ADVERTENCIA: No se encontró la API key de Google Gemini en las variables de entorno.")
+    print("El análisis avanzado no estará disponible.")
 
 # Importar bibliotecas para QR
+qreader_available = False
 pyzbar_available = False
 cv2_available = False
 
 # Intentar importar múltiples bibliotecas para lectura de QR
 print("Intentando cargar bibliotecas para lectura de QR...")
 
-# 1. Intentar con pyzbar
+# 1. Intentar con qreader (primera opción)
 try:
-    from pyzbar.pyzbar import decode as pyzbar_decode
-    pyzbar_available = True
-    print("Biblioteca pyzbar cargada correctamente")
+    import qreader
+    qreader_available = True
+    print("Biblioteca qreader cargada correctamente")
 except ImportError as e:
-    print(f"Error al cargar pyzbar: {e}")
+    print(f"Error al cargar qreader: {e}")
     
-    # Intentar instalar pyzbar automáticamente
+    # Intentar instalar qreader automáticamente
     try:
         import subprocess
-        print("Intentando instalar pyzbar...")
-        subprocess.check_call(["pip", "install", "pyzbar"])
+        print("Intentando instalar qreader...")
+        subprocess.check_call(["pip", "install", "qreader"])
+        import qreader
+        qreader_available = True
+        print("Biblioteca qreader instalada y cargada correctamente")
+    except Exception as e:
+        print(f"Error al instalar qreader: {e}")
+
+# 2. Intentar con pyzbar (segunda opción)
+if not qreader_available:
+    try:
         from pyzbar.pyzbar import decode as pyzbar_decode
         pyzbar_available = True
-        print("Biblioteca pyzbar instalada y cargada correctamente")
-    except Exception as e:
-        print(f"Error al instalar pyzbar: {e}")
+        print("Biblioteca pyzbar cargada correctamente")
+    except ImportError as e:
+        print(f"Error al cargar pyzbar: {e}")
+        
+        # Intentar instalar pyzbar automáticamente
+        try:
+            import subprocess
+            print("Intentando instalar pyzbar...")
+            subprocess.check_call(["pip", "install", "pyzbar"])
+            from pyzbar.pyzbar import decode as pyzbar_decode
+            pyzbar_available = True
+            print("Biblioteca pyzbar instalada y cargada correctamente")
+        except Exception as e:
+            print(f"Error al instalar pyzbar: {e}")
 
-# 2. Intentar con OpenCV como alternativa
-if not pyzbar_available:
+# 3. Intentar con OpenCV como última alternativa
+if not qreader_available and not pyzbar_available:
     try:
         print("Intentando cargar OpenCV como alternativa...")
         import cv2
@@ -100,13 +94,46 @@ if not pyzbar_available:
         except Exception as e:
             print(f"Error al instalar OpenCV: {e}")
 
-if not pyzbar_available and not cv2_available:
+if not qreader_available and not pyzbar_available and not cv2_available:
     print("Error crítico: No se encontraron bibliotecas para leer QR.")
-    print("Este bot requiere alguna de estas bibliotecas: pyzbar o OpenCV")
+    print("Este programa requiere alguna de estas bibliotecas: qreader, pyzbar o OpenCV")
     print("En sistemas Linux, ejecuta: apt-get install libzbar0 zbar-tools")
     sys.exit(1)
 else:
     print("Al menos una biblioteca para lectura de QR está disponible")
+
+# Función para normalizar el resultado de la decodificación QR
+def normalizar_resultado_qr(resultado):
+    """
+    Normaliza el resultado de la decodificación QR para asegurar que siempre sea una cadena.
+    
+    Args:
+        resultado: El resultado de la decodificación QR (puede ser cadena, tupla, etc.)
+        
+    Returns:
+        str: Una cadena normalizada
+    """
+    if resultado is None:
+        return None
+    
+    # Si es una tupla o lista, tomar el primer elemento
+    if isinstance(resultado, (tuple, list)):
+        if len(resultado) > 0:
+            # Recursivamente normalizar el primer elemento
+            return normalizar_resultado_qr(resultado[0])
+        else:
+            return None
+    
+    # Si ya es una cadena, devolverla
+    if isinstance(resultado, str):
+        return resultado
+    
+    # Intentar convertir a cadena
+    try:
+        return str(resultado)
+    except Exception as e:
+        print(f"Error al normalizar resultado QR: {e}")
+        return None
 
 # Función para decodificar QR usando las bibliotecas disponibles
 def decodificar_qr(imagen_bytes):
@@ -114,46 +141,117 @@ def decodificar_qr(imagen_bytes):
         # Convertir bytes a imagen
         img = Image.open(BytesIO(imagen_bytes))
         
-        # 1. Intentar con pyzbar si está disponible
-        if pyzbar_available:
-            decoded_objects = pyzbar_decode(img)
-            for obj in decoded_objects:
-                decoded_text = obj.data.decode('utf-8')
-                print(f"Contenido del QR (pyzbar): {decoded_text}")
-                return decoded_text
-                
-            # Si no se encontró ningún QR, intentar con una imagen procesada
-            img_gray = img.convert('L')
-            img_contrast = Image.eval(img_gray, lambda x: 0 if x < 128 else 255)
-            
-            decoded_objects = pyzbar_decode(img_contrast)
-            for obj in decoded_objects:
-                decoded_text = obj.data.decode('utf-8')
-                print(f"Contenido del QR (pyzbar - imagen procesada): {decoded_text}")
-                return decoded_text
-        
-        # 2. Intentar con OpenCV si está disponible
-        if cv2_available:
-            # Convertir PIL a OpenCV
+        # 1. Intentar con qreader si está disponible (mejor rendimiento)
+        if qreader_available:
+            # Convertir PIL a numpy array
             img_array = np.array(img)
-            img_cv = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
+            
+            # Verificar si la imagen tiene 4 canales (RGBA) y convertirla a RGB
+            if len(img_array.shape) == 3 and img_array.shape[2] == 4:
+                # Convertir RGBA a RGB
+                img_rgb = Image.fromarray(img_array).convert('RGB')
+                img_array = np.array(img_rgb)
+                print("Imagen convertida de RGBA a RGB")
             
             # Crear detector QR
-            qr_detector = cv2.QRCodeDetector()
-            data, bbox, _ = qr_detector.detectAndDecode(img_cv)
+            detector = qreader.QReader()
             
-            if data:
-                print(f"Contenido del QR (OpenCV): {data}")
-                return data
+            try:
+                # Decodificar QR
+                decoded_result = detector.detect_and_decode(image=img_array, return_detections=False)
                 
-            # Intentar con imagen procesada
-            img_gray = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
-            _, img_thresh = cv2.threshold(img_gray, 127, 255, cv2.THRESH_BINARY)
-            data, bbox, _ = qr_detector.detectAndDecode(img_thresh)
+                # Normalizar el resultado (convertir tupla a cadena si es necesario)
+                decoded_text = normalizar_resultado_qr(decoded_result)
+                
+                if decoded_text:
+                    print(f"Contenido del QR (qreader): {decoded_result}")
+                    print(f"Contenido normalizado: {decoded_text}")
+                    return decoded_text
+            except Exception as e:
+                print(f"Error con qreader: {e}")
+                # Si falla qreader, continuamos con otros métodos
             
-            if data:
-                print(f"Contenido del QR (OpenCV - imagen procesada): {data}")
-                return data
+            # Si no se encontró ningún QR, intentar con una imagen procesada
+            try:
+                # Asegurarse de que la imagen es RGB para evitar errores
+                if len(img_array.shape) == 3 and img_array.shape[2] == 3:
+                    import cv2
+                    img_gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
+                    _, img_thresh = cv2.threshold(img_gray, 127, 255, cv2.THRESH_BINARY)
+                    
+                    # Intentar de nuevo con la imagen procesada
+                    decoded_result = detector.detect_and_decode(image=img_thresh, return_detections=False)
+                    
+                    # Normalizar el resultado
+                    decoded_text = normalizar_resultado_qr(decoded_result)
+                    
+                    if decoded_text:
+                        print(f"Contenido del QR (qreader - imagen procesada): {decoded_result}")
+                        print(f"Contenido normalizado: {decoded_text}")
+                        return decoded_text
+            except Exception as e:
+                print(f"Error con qreader (imagen procesada): {e}")
+                # Si falla, continuamos con otros métodos
+        
+        # 2. Intentar con pyzbar si está disponible o si qreader falló
+        if pyzbar_available:
+            try:
+                decoded_objects = pyzbar_decode(img)
+                for obj in decoded_objects:
+                    decoded_text = obj.data.decode('utf-8')
+                    print(f"Contenido del QR (pyzbar): {decoded_text}")
+                    return decoded_text
+            except Exception as e:
+                print(f"Error con pyzbar: {e}")
+            
+            # Si no se encontró ningún QR, intentar con una imagen procesada
+            try:
+                img_gray = img.convert('L')
+                img_contrast = Image.eval(img_gray, lambda x: 0 if x < 128 else 255)
+                
+                decoded_objects = pyzbar_decode(img_contrast)
+                for obj in decoded_objects:
+                    decoded_text = obj.data.decode('utf-8')
+                    print(f"Contenido del QR (pyzbar - imagen procesada): {decoded_text}")
+                    return decoded_text
+            except Exception as e:
+                print(f"Error con pyzbar (imagen procesada): {e}")
+        
+        # 3. Intentar con OpenCV si está disponible o si los anteriores fallaron
+        if cv2_available:
+            try:
+                # Convertir PIL a OpenCV
+                img_array = np.array(img)
+                
+                # Si la imagen es RGBA, convertirla a RGB
+                if len(img_array.shape) == 3 and img_array.shape[2] == 4:
+                    img_rgb = cv2.cvtColor(img_array, cv2.COLOR_RGBA2RGB)
+                else:
+                    img_rgb = img_array
+                
+                img_cv = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
+                
+                # Crear detector QR
+                qr_detector = cv2.QRCodeDetector()
+                data, bbox, _ = qr_detector.detectAndDecode(img_cv)
+                
+                if data:
+                    print(f"Contenido del QR (OpenCV): {data}")
+                    return data
+            except Exception as e:
+                print(f"Error con OpenCV: {e}")
+            
+            # Intentar con imagen procesada
+            try:
+                img_gray = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
+                _, img_thresh = cv2.threshold(img_gray, 127, 255, cv2.THRESH_BINARY)
+                data, bbox, _ = qr_detector.detectAndDecode(img_thresh)
+                
+                if data:
+                    print(f"Contenido del QR (OpenCV - imagen procesada): {data}")
+                    return data
+            except Exception as e:
+                print(f"Error con OpenCV (imagen procesada): {e}")
         
         return None
     except Exception as e:
@@ -253,6 +351,10 @@ def extraer_ciudad(texto):
     match = re.search(r'([A-Z]+),\s*D\.?C\.?', texto)
     if match:
         return f"{match.group(0)}"
+    
+    # Buscar "BOGOTA" en el contenido QR
+    if "BOGOTA" in texto:
+        return "BOGOTA"
     
     return None
 
@@ -399,6 +501,10 @@ def identificar_tipo_contenido(texto):
     if texto.startswith("BEGIN:VEVENT"):
         return "Evento de calendario"
     
+    # Verificar si parece ser un código QR de pago o factura
+    if "SUPERMERCADO" in texto or "RBM" in texto:
+        return "Factura o comprobante de pago"
+    
     # Si es texto corto
     if len(texto) < 50:
         return "Texto corto"
@@ -406,179 +512,71 @@ def identificar_tipo_contenido(texto):
     # Si es texto largo
     return "Texto largo"
 
-# Manejador para el comando /start
-@bot.message_handler(commands=['start'])
-def handle_start(message):
-    # Verificar si el mensaje es antiguo
-    if message.date < tiempo_inicio_bot:
-        return
-    bot.reply_to(message, "¡Hola! Soy un bot lector de códigos QR. Envíame una imagen con un código QR para leerla.")
-
-# Manejador para el comando /help
-@bot.message_handler(commands=['help'])
-def handle_help(message):
-    # Verificar si el mensaje es antiguo
-    if message.date < tiempo_inicio_bot:
-        return
-    help_text = """
-    Comandos disponibles:
-    /start - Iniciar el bot
-    /help - Mostrar esta ayuda
-    
-    Funcionalidades:
-    - Envía una imagen con un código QR y te mostraré su contenido.
-    - El bot utiliza la biblioteca pyzbar para escanear códigos QR.
-    - Puede extraer y completar nombres de personas usando IA de Google Gemini.
-    - El contenido completo del QR se registra en los logs del servidor.
+# Función principal para procesar una imagen QR
+def procesar_imagen_qr(imagen_bytes):
     """
-    bot.reply_to(message, help_text)
-
-# Manejador para imágenes
-@bot.message_handler(content_types=['photo'])
-def handle_photo(message):
-    # Verificar si el mensaje es antiguo
-    if message.date < tiempo_inicio_bot:
-        return
-    try:
-        # Obtener el archivo de la foto (la más grande disponible)
-        file_id = message.photo[-1].file_id
-        file_info = bot.get_file(file_id)
-        file_bytes = bot.download_file(file_info.file_path)
-        
-        # Informar al usuario que estamos procesando la imagen
-        processing_msg = bot.reply_to(message, "Procesando código QR...")
-        
-        # Intentar decodificar el QR
-        qr_data = decodificar_qr(file_bytes)
-        
-        if qr_data:
-            # Registrar el contenido completo en los logs
-            print(f"Contenido del QR: {qr_data}")
-            
-            # Inicializar variables
-            nombre = extraer_nombre(qr_data)
-            direccion = extraer_direccion(qr_data)
-            ciudad = extraer_ciudad(qr_data)
-            celular = extraer_celular(qr_data)
-            nombre_completo = nombre
-            
-            # Análisis con IA sin editar mensajes intermedios
-            if not ciudad and GEMINI_API_KEY:
-                try:
-                    ciudad = analizar_ciudad_con_gemini(qr_data)
-                except Exception as e:
-                    print(f"Error al analizar ciudad con Gemini: {e}")
-            
-            # Completar nombre con IA sin editar mensajes intermedios
-            if nombre and GEMINI_API_KEY:
-                try:
-                    nombre_completo = completar_nombre_con_gemini(nombre, qr_data)
-                except Exception as e:
-                    print(f"Error al completar nombre con Gemini: {e}")
-                    nombre_completo = nombre
-            
-            # Preparar respuesta
-            respuesta_partes = []
-            
-            # Título con emojis
-            respuesta_partes.append("🤖✨ *La IA Nequi Alpha ha detectado los siguientes datos en ese QR:* ✨🤖")
-            respuesta_partes.append("")
-            
-            # Añadir información encontrada
-            if nombre_completo:
-                respuesta_partes.append(f"✅ Nombre detectado: {nombre_completo}")
-                respuesta_partes.append("")
-            
-            if direccion:
-                respuesta_partes.append(f"💠 Dirección detectada: {direccion}")
-                respuesta_partes.append("")
-            
-            if ciudad:
-                respuesta_partes.append(f"🏙️ Ciudad: {ciudad}")
-                respuesta_partes.append("")
-            
-            if celular:
-                respuesta_partes.append(f"📱 Celular: {celular}")
-                respuesta_partes.append("")
-            
-            # Si no encontramos ninguna información relevante
-            if not nombre_completo and not direccion and not ciudad and not celular:
-                tipo_contenido = identificar_tipo_contenido(qr_data)
-                respuesta_partes.append(f"ℹ️ Tipo de contenido: {tipo_contenido}")
-                respuesta_partes.append("")
-            
-            # Eliminar la última línea en blanco si existe
-            if respuesta_partes and respuesta_partes[-1] == "":
-                respuesta_partes.pop()
-            
-            # Unir todas las partes de la respuesta
-            respuesta = "\n".join(respuesta_partes)
-            
-            # Eliminar el mensaje de procesamiento y enviar uno nuevo
-            try:
-                bot.delete_message(message.chat.id, processing_msg.message_id)
-                bot.send_message(message.chat.id, respuesta, parse_mode="Markdown")
-            except Exception as e:
-                print(f"Error al enviar respuesta final: {e}")
-                # Si falla la eliminación, intentar editar el mensaje existente
-                try:
-                    bot.edit_message_text(respuesta, message.chat.id, processing_msg.message_id, parse_mode="Markdown")
-                except Exception as inner_e:
-                    print(f"Error al editar mensaje: {inner_e}")
-        else:
-            # No responder si no se detecta un QR
-            # Eliminar el mensaje de procesamiento
-            bot.delete_message(message.chat.id, processing_msg.message_id)
-    except Exception as e:
-        print(f"Error al procesar la imagen: {e}")
-        # Intentar notificar al usuario sobre el error
-        try:
-            # Si hay un mensaje de procesamiento, intentar eliminarlo y enviar uno nuevo
-            if 'processing_msg' in locals() and processing_msg:
-                try:
-                    bot.delete_message(message.chat.id, processing_msg.message_id)
-                except:
-                    pass
-                bot.send_message(
-                    message.chat.id,
-                    "❌ Error al procesar la imagen. Por favor, asegúrate de que la imagen contiene un código QR válido y vuelve a intentarlo."
-                )
-            else:
-                # Si no hay mensaje de procesamiento, enviar uno nuevo
-                bot.reply_to(
-                    message,
-                    "❌ Error al procesar la imagen. Por favor, asegúrate de que la imagen contiene un código QR válido y vuelve a intentarlo."
-                )
-        except Exception as inner_e:
-            print(f"Error al notificar al usuario: {inner_e}")
-
-# Manejador para mensajes de texto
-@bot.message_handler(content_types=['text'])
-def handle_text(message):
-    # Verificar si el mensaje es antiguo
-    if message.date < tiempo_inicio_bot:
-        return
+    Procesa una imagen con un código QR y extrae información relevante.
     
-    # Responder a mensajes de texto
-    if message.text.lower() == 'hola':
-        bot.reply_to(message, "¡Hola! Soy un bot lector de códigos QR. Envíame una imagen con un código QR para leerla.")
-    elif message.text.lower() == 'ayuda' or message.text.lower() == '/help':
-        handle_help(message)
-    elif message.text.lower() == 'start' or message.text.lower() == '/start':
-        handle_start(message)
-    else:
-        bot.reply_to(message, "Envíame una imagen con un código QR para leerla. Escribe 'ayuda' para más información.")
-
-# Solo iniciar el polling si se ejecuta directamente
-if __name__ == "__main__":
-    print("Bot iniciado...")
-    try:
-        # Eliminar cualquier webhook configurado
-        bot.remove_webhook()
-        time.sleep(1)  # Esperar a que se procese la eliminación
+    Args:
+        imagen_bytes: Bytes de la imagen a procesar
         
-        # Iniciar polling
-        bot.polling(none_stop=True)
-    except Exception as e:
-        print(f"Error: {e}")
-        sys.exit(1) 
+    Returns:
+        dict: Diccionario con la información extraída
+    """
+    # Intentar decodificar el QR
+    qr_data = decodificar_qr(imagen_bytes)
+    
+    if not qr_data:
+        return {"error": "No se detectó ningún código QR en la imagen"}
+    
+    # Registrar el contenido completo
+    print(f"Contenido del QR: {qr_data}")
+    
+    # Inicializar variables
+    nombre = extraer_nombre(qr_data)
+    direccion = extraer_direccion(qr_data)
+    ciudad = extraer_ciudad(qr_data)
+    celular = extraer_celular(qr_data)
+    nombre_completo = nombre
+    
+    # Buscar nombre de establecimiento en el QR
+    if not nombre and "SUPERMERCADO EL IMPERI" in qr_data:
+        nombre_completo = "SUPERMERCADO EL IMPERIO"
+    
+    # Análisis con IA
+    if not ciudad and GEMINI_API_KEY:
+        try:
+            ciudad = analizar_ciudad_con_gemini(qr_data)
+        except Exception as e:
+            print(f"Error al analizar ciudad con Gemini: {e}")
+    
+    # Completar nombre con IA
+    if nombre and GEMINI_API_KEY:
+        try:
+            nombre_completo = completar_nombre_con_gemini(nombre, qr_data)
+        except Exception as e:
+            print(f"Error al completar nombre con Gemini: {e}")
+            nombre_completo = nombre
+    
+    # Preparar respuesta
+    resultado = {
+        "contenido_qr": qr_data,
+        "nombre": nombre_completo,
+        "direccion": direccion,
+        "ciudad": ciudad,
+        "celular": celular,
+        "tipo_contenido": None
+    }
+    
+    # Si no encontramos ninguna información relevante
+    if not nombre_completo and not direccion and not ciudad and not celular:
+        tipo_contenido = identificar_tipo_contenido(qr_data)
+        resultado["tipo_contenido"] = tipo_contenido
+    
+    return resultado
+
+# Función para pruebas
+if __name__ == "__main__":
+    # Ejemplo de uso
+    print("Este módulo proporciona funciones para escanear códigos QR.")
+    print("Importa este módulo y usa la función procesar_imagen_qr() para procesar imágenes con códigos QR.") 

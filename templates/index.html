@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Escáner de Códigos QR</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            padding-top: 2rem;
+            background-color: #f8f9fa;
+        }
+        .card {
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            border: none;
+            border-radius: 10px;
+        }
+        .card-header {
+            background-color: #6c757d;
+            color: white;
+            border-radius: 10px 10px 0 0 !important;
+            font-weight: bold;
+        }
+        .btn-primary {
+            background-color: #0d6efd;
+            border-color: #0d6efd;
+        }
+        .result-container {
+            display: none;
+            margin-top: 2rem;
+        }
+        #preview {
+            max-width: 100%;
+            max-height: 300px;
+            margin-bottom: 1rem;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 1rem;
+        }
+        .spinner-border {
+            width: 3rem;
+            height: 3rem;
+        }
+        .data-item {
+            margin-bottom: 0.5rem;
+            padding: 0.5rem;
+            border-radius: 5px;
+            background-color: #f8f9fa;
+        }
+        .data-label {
+            font-weight: bold;
+            color: #0d6efd;
+        }
+        .error-message {
+            color: #dc3545;
+            font-weight: bold;
+            display: none;
+            margin-top: 1rem;
+        }
+        .camera-container {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        #camera {
+            width: 100%;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .camera-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: 2px solid #0d6efd;
+            border-radius: 10px;
+            box-sizing: border-box;
+            pointer-events: none;
+        }
+        .camera-controls {
+            margin-top: 1rem;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center mb-4">Escáner de Códigos QR</h1>
+        
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        Subir imagen con código QR
+                    </div>
+                    <div class="card-body">
+                        <form id="uploadForm" enctype="multipart/form-data">
+                            <div class="mb-3">
+                                <label for="qrImage" class="form-label">Selecciona una imagen con código QR</label>
+                                <input class="form-control" type="file" id="qrImage" accept="image/*" required>
+                            </div>
+                            <div class="d-grid gap-2">
+                                <button class="btn btn-primary" type="submit">Escanear QR</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="card mb-4">
+                    <div class="card-header">
+                        Usar cámara para escanear QR
+                    </div>
+                    <div class="card-body">
+                        <div class="camera-container mb-3">
+                            <video id="camera" autoplay playsinline></video>
+                            <div class="camera-overlay"></div>
+                        </div>
+                        <div class="camera-controls">
+                            <button id="startCamera" class="btn btn-primary me-2">Iniciar cámara</button>
+                            <button id="capturePhoto" class="btn btn-success" disabled>Capturar</button>
+                            <button id="stopCamera" class="btn btn-danger ms-2" disabled>Detener cámara</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="loading">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                    <p class="mt-2">Procesando imagen...</p>
+                </div>
+                
+                <div class="error-message" id="errorMessage"></div>
+                
+                <div class="result-container card">
+                    <div class="card-header">
+                        Resultados del escaneo
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <img id="preview" src="" alt="Imagen QR" class="img-fluid">
+                            </div>
+                            <div class="col-md-8">
+                                <div id="nombreContainer" class="data-item">
+                                    <span class="data-label">Nombre:</span>
+                                    <div id="nombre" class="mt-1"></div>
+                                </div>
+                                
+                                <div id="direccionContainer" class="data-item">
+                                    <span class="data-label">Dirección:</span>
+                                    <div id="direccion" class="mt-1"></div>
+                                </div>
+                                
+                                <div id="ciudadContainer" class="data-item">
+                                    <span class="data-label">Ciudad:</span>
+                                    <div id="ciudad" class="mt-1"></div>
+                                </div>
+                                
+                                <div id="celularContainer" class="data-item">
+                                    <span class="data-label">Celular:</span>
+                                    <div id="celular" class="mt-1"></div>
+                                </div>
+                                
+                                <div id="tipoContenidoContainer" class="data-item">
+                                    <span class="data-label">Tipo de contenido:</span>
+                                    <div id="tipoContenido" class="mt-1"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const uploadForm = document.getElementById('uploadForm');
+            const resultContainer = document.querySelector('.result-container');
+            const loading = document.querySelector('.loading');
+            const errorMessage = document.getElementById('errorMessage');
+            const preview = document.getElementById('preview');
+            
+            // Elementos de la cámara
+            const videoElement = document.getElementById('camera');
+            const startCameraButton = document.getElementById('startCamera');
+            const stopCameraButton = document.getElementById('stopCamera');
+            const capturePhotoButton = document.getElementById('capturePhoto');
+            
+            let stream = null;
+            
+            // Función para iniciar la cámara
+            startCameraButton.addEventListener('click', async () => {
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({ 
+                        video: { facingMode: 'environment' } 
+                    });
+                    videoElement.srcObject = stream;
+                    startCameraButton.disabled = true;
+                    stopCameraButton.disabled = false;
+                    capturePhotoButton.disabled = false;
+                } catch (err) {
+                    showError('No se pudo acceder a la cámara: ' + err.message);
+                }
+            });
+            
+            // Función para detener la cámara
+            stopCameraButton.addEventListener('click', () => {
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                    videoElement.srcObject = null;
+                    startCameraButton.disabled = false;
+                    stopCameraButton.disabled = true;
+                    capturePhotoButton.disabled = true;
+                }
+            });
+            
+            // Función para capturar foto
+            capturePhotoButton.addEventListener('click', () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = videoElement.videoWidth;
+                canvas.height = videoElement.videoHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+                
+                // Convertir a blob
+                canvas.toBlob((blob) => {
+                    const file = new File([blob], 'camera-capture.jpg', { type: 'image/jpeg' });
+                    
+                    // Crear FormData y enviar
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    
+                    processImage(formData);
+                }, 'image/jpeg');
+            });
+            
+            // Manejar envío del formulario
+            uploadForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const fileInput = document.getElementById('qrImage');
+                if (!fileInput.files[0]) {
+                    showError('Por favor selecciona una imagen');
+                    return;
+                }
+                
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+                
+                processImage(formData);
+            });
+            
+            // Función para procesar la imagen
+            function processImage(formData) {
+                // Mostrar loading y ocultar resultados anteriores
+                loading.style.display = 'block';
+                resultContainer.style.display = 'none';
+                errorMessage.style.display = 'none';
+                
+                fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    loading.style.display = 'none';
+                    
+                    if (data.error) {
+                        showError(data.error);
+                        return;
+                    }
+                    
+                    // Mostrar resultados
+                    resultContainer.style.display = 'block';
+                    
+                    // Mostrar la imagen
+                    if (data.imagen) {
+                        preview.src = `data:image/jpeg;base64,${data.imagen}`;
+                    }
+                    
+                    // Mostrar o ocultar campos según la información disponible
+                    toggleDataField('nombre', data.nombre);
+                    toggleDataField('direccion', data.direccion);
+                    toggleDataField('ciudad', data.ciudad);
+                    toggleDataField('celular', data.celular);
+                    toggleDataField('tipoContenido', data.tipo_contenido);
+                })
+                .catch(error => {
+                    loading.style.display = 'none';
+                    showError('Error al procesar la imagen: ' + error.message);
+                });
+            }
+            
+            // Función para mostrar error
+            function showError(message) {
+                errorMessage.textContent = message;
+                errorMessage.style.display = 'block';
+            }
+            
+            // Función para mostrar u ocultar campos
+            function toggleDataField(id, value) {
+                const container = document.getElementById(id + 'Container');
+                const element = document.getElementById(id);
+                
+                if (value) {
+                    container.style.display = 'block';
+                    element.textContent = value;
+                } else {
+                    container.style.display = 'none';
+                }
+            }
+        });
+    </script>
+</body>
+</html> 
