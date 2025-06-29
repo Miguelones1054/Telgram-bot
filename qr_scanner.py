@@ -26,7 +26,7 @@ else:
     print("ADVERTENCIA: No se encontró la API key de Google Gemini en las variables de entorno.")
     print("El análisis avanzado no estará disponible.")
 
-# Función para decodificar QR usando solo OpenCV
+# Función para decodificar QR usando solo OpenCV con mejoramiento de imagen
 def decodificar_qr(imagen_bytes):
     try:
         # Convertir bytes a imagen
@@ -40,23 +40,56 @@ def decodificar_qr(imagen_bytes):
             img_rgb = img_array
 
         img_cv = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
-
-        # Crear detector QR
         qr_detector = cv2.QRCodeDetector()
-        data, bbox, _ = qr_detector.detectAndDecode(img_cv)
 
+        # 1. Intento directo
+        data, bbox, _ = qr_detector.detectAndDecode(img_cv)
         if data:
-            print(f"Contenido del QR (OpenCV): {data}")
+            print(f"QR detectado (original): {data}")
             return data
 
-        # Intentar con imagen procesada (blanco y negro)
+        # 2. Aumentar contraste y nitidez
+        img_yuv = cv2.cvtColor(img_cv, cv2.COLOR_BGR2YUV)
+        img_yuv[:,:,0] = cv2.equalizeHist(img_yuv[:,:,0])
+        img_contrast = cv2.cvtColor(img_yuv, cv2.COLOR_YUV2BGR)
+        kernel = np.array([[0, -1, 0], [-1, 5,-1], [0, -1, 0]])
+        img_sharp = cv2.filter2D(img_contrast, -1, kernel)
+        data, bbox, _ = qr_detector.detectAndDecode(img_sharp)
+        if data:
+            print(f"QR detectado (contraste/nitidez): {data}")
+            return data
+
+        # 3. Binarización adaptativa
         img_gray = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
+        img_adapt = cv2.adaptiveThreshold(img_gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                                          cv2.THRESH_BINARY, 11, 2)
+        data, bbox, _ = qr_detector.detectAndDecode(img_adapt)
+        if data:
+            print(f"QR detectado (binarización adaptativa): {data}")
+            return data
+
+        # 4. Reducción de ruido
+        img_denoise = cv2.fastNlMeansDenoising(img_gray, None, 30, 7, 21)
+        data, bbox, _ = qr_detector.detectAndDecode(img_denoise)
+        if data:
+            print(f"QR detectado (reducción de ruido): {data}")
+            return data
+
+        # 5. Prueba con inversión de colores
+        img_inv = cv2.bitwise_not(img_gray)
+        data, bbox, _ = qr_detector.detectAndDecode(img_inv)
+        if data:
+            print(f"QR detectado (inversión de colores): {data}")
+            return data
+
+        # 6. Prueba con binarización simple
         _, img_thresh = cv2.threshold(img_gray, 127, 255, cv2.THRESH_BINARY)
         data, bbox, _ = qr_detector.detectAndDecode(img_thresh)
         if data:
-            print(f"Contenido del QR (OpenCV - imagen procesada): {data}")
+            print(f"QR detectado (binarización simple): {data}")
             return data
 
+        print("No se pudo decodificar el QR tras varios mejoramientos.")
         return None
     except Exception as e:
         print(f"Error al decodificar QR: {e}")
