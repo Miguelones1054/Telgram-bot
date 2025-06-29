@@ -120,7 +120,8 @@ async def health_check():
     return {"status": "healthy", "service": "QR Scanner API"}
 
 if __name__ == "__main__":
-    port = int(os.environ.get('PORT', 8000))
+    # Render usa puerto 10000 por defecto, pero también acepta la variable PORT
+    port = int(os.environ.get('PORT', 10000))
     uvicorn.run(
         "app:app",
         host="0.0.0.0",
