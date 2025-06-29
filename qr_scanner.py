@@ -8,6 +8,7 @@ from PIL import Image
 import google.generativeai as genai
 from dotenv import load_dotenv
 import cv2
+import requests
 
 # Cargar variables de entorno
 try:
@@ -26,74 +27,25 @@ else:
     print("ADVERTENCIA: No se encontró la API key de Google Gemini en las variables de entorno.")
     print("El análisis avanzado no estará disponible.")
 
-# Función para decodificar QR usando solo OpenCV con mejoramiento de imagen
+# Función para decodificar QR usando la API pública de goQR
 def decodificar_qr(imagen_bytes):
     try:
-        # Convertir bytes a imagen
-        img = Image.open(BytesIO(imagen_bytes))
-        img_array = np.array(img)
-        print(f"[DEBUG] img_array.shape: {img_array.shape}, dtype: {img_array.dtype}")
-
-        # Si la imagen es RGBA, convertirla a RGB
-        if len(img_array.shape) == 3 and img_array.shape[2] == 4:
-            img_rgb = cv2.cvtColor(img_array, cv2.COLOR_RGBA2RGB)
+        files = {'file': ('image.png', imagen_bytes, 'image/png')}
+        response = requests.post('https://api.qrserver.com/v1/read-qr-code/', files=files)
+        if response.status_code == 200:
+            data = response.json()
+            if data and data[0] and data[0]['symbol'] and data[0]['symbol'][0]['data']:
+                qr_content = data[0]['symbol'][0]['data']
+                print(f"[INFO] QR detectado por goQR: {qr_content}")
+                return qr_content
+            else:
+                print("[ERROR] No se detectó ningún código QR en la imagen (goQR)")
+                return None
         else:
-            img_rgb = img_array
-
-        img_cv = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
-        qr_detector = cv2.QRCodeDetector()
-
-        # 1. Intento directo
-        data, bbox, _ = qr_detector.detectAndDecode(img_cv)
-        if data:
-            print(f"QR detectado (original): {data}")
-            return data
-
-        # 2. Aumentar contraste y nitidez
-        img_yuv = cv2.cvtColor(img_cv, cv2.COLOR_BGR2YUV)
-        img_yuv[:,:,0] = cv2.equalizeHist(img_yuv[:,:,0])
-        img_contrast = cv2.cvtColor(img_yuv, cv2.COLOR_YUV2BGR)
-        kernel = np.array([[0, -1, 0], [-1, 5,-1], [0, -1, 0]])
-        img_sharp = cv2.filter2D(img_contrast, -1, kernel)
-        data, bbox, _ = qr_detector.detectAndDecode(img_sharp)
-        if data:
-            print(f"QR detectado (contraste/nitidez): {data}")
-            return data
-
-        # 3. Binarización adaptativa
-        img_gray = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
-        img_adapt = cv2.adaptiveThreshold(img_gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                                          cv2.THRESH_BINARY, 11, 2)
-        data, bbox, _ = qr_detector.detectAndDecode(img_adapt)
-        if data:
-            print(f"QR detectado (binarización adaptativa): {data}")
-            return data
-
-        # 4. Reducción de ruido
-        img_denoise = cv2.fastNlMeansDenoising(img_gray, None, 30, 7, 21)
-        data, bbox, _ = qr_detector.detectAndDecode(img_denoise)
-        if data:
-            print(f"QR detectado (reducción de ruido): {data}")
-            return data
-
-        # 5. Prueba con inversión de colores
-        img_inv = cv2.bitwise_not(img_gray)
-        data, bbox, _ = qr_detector.detectAndDecode(img_inv)
-        if data:
-            print(f"QR detectado (inversión de colores): {data}")
-            return data
-
-        # 6. Prueba con binarización simple
-        _, img_thresh = cv2.threshold(img_gray, 127, 255, cv2.THRESH_BINARY)
-        data, bbox, _ = qr_detector.detectAndDecode(img_thresh)
-        if data:
-            print(f"QR detectado (binarización simple): {data}")
-            return data
-
-        print("No se pudo decodificar el QR tras varios mejoramientos.")
-        return None
+            print(f"[ERROR] Error en la API goQR: {response.status_code} - {response.text}")
+            return None
     except Exception as e:
-        print(f"Error al decodificar QR: {e}")
+        print(f"[ERROR] Excepción al usar la API goQR: {e}")
         return None
 
 # Función para normalizar el resultado de la decodificación QR
