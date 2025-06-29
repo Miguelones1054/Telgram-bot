@@ -565,6 +565,11 @@ def webhook_handler(message):
 if __name__ == "__main__":
     print("Bot iniciado...")
     try:
+        # Eliminar cualquier webhook configurado
+        bot.remove_webhook()
+        time.sleep(1)  # Esperar a que se procese la eliminación
+        
+        # Iniciar polling
         bot.polling(none_stop=True)
     except Exception as e:
         print(f"Error: {e}")

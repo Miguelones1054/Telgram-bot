@@ -2,6 +2,9 @@ import os
 import sys
 import time
 import logging
+import socket
+import fcntl
+import struct
 from dotenv import load_dotenv
 
 # Configurar logging
@@ -10,6 +13,26 @@ logging.basicConfig(
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
+
+# Función para crear un archivo de bloqueo para evitar múltiples instancias
+def obtain_lock():
+    lock_file = "/tmp/telegram_bot.lock"
+    
+    try:
+        # Intentar crear un archivo de bloqueo
+        lock_fd = open(lock_file, 'w')
+        try:
+            # Intentar obtener un bloqueo exclusivo
+            fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            logger.info("Bloqueo obtenido correctamente. Este es el único bot en ejecución.")
+            return lock_fd
+        except IOError:
+            logger.error("No se pudo obtener el bloqueo. Otra instancia del bot ya está en ejecución.")
+            sys.exit(1)
+    except Exception as e:
+        logger.warning(f"No se pudo crear el archivo de bloqueo: {e}")
+        # Continuar sin bloqueo
+        return None
 
 # Verificar que estamos en el directorio correcto
 if not os.path.exists('qr_bot.py'):
@@ -38,6 +61,9 @@ except ImportError as e:
     sys.exit(1)
 
 if __name__ == "__main__":
+    # Obtener bloqueo para evitar múltiples instancias
+    lock = obtain_lock()
+    
     logger.info("Bot de Telegram iniciado...")
     
     max_retries = 10
@@ -47,7 +73,10 @@ if __name__ == "__main__":
     while retry_count < max_retries:
         try:
             logger.info(f"Intento de conexión {retry_count + 1}/{max_retries}")
-            bot.polling(none_stop=True, timeout=60, long_polling_timeout=30)
+            # Agregar un identificador único para esta instancia
+            bot.remove_webhook()  # Asegurarse de que no hay webhooks configurados
+            time.sleep(1)  # Esperar un segundo para que Telegram procese la eliminación del webhook
+            bot.polling(none_stop=True, timeout=60, long_polling_timeout=30, allowed_updates=["message"])
             # Si llegamos aquí, el polling terminó sin error
             break
         except Exception as e:
