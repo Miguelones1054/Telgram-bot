@@ -1,1 +1,1 @@
-web: python qr_bot.py 
+web: gunicorn app:app 
