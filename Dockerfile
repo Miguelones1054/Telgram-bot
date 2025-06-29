@@ -23,8 +23,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copiar el resto de la aplicación
 COPY . .
 
-# Crear directorio de uploads si no existe
-RUN mkdir -p uploads
+# Crear directorio de uploads si no existe y dar permisos
+RUN mkdir -p uploads && chmod 777 uploads
 
 # Exponer el puerto que usa la aplicación
 EXPOSE 8000
