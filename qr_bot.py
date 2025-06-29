@@ -56,7 +56,6 @@ tiempo_inicio_bot = int(time.time())
 # Importar bibliotecas para QR
 pyzbar_available = False
 cv2_available = False
-zxing_available = False
 
 # Intentar importar múltiples bibliotecas para lectura de QR
 print("Intentando cargar bibliotecas para lectura de QR...")
@@ -101,30 +100,9 @@ if not pyzbar_available:
         except Exception as e:
             print(f"Error al instalar OpenCV: {e}")
 
-# 3. Intentar con zxing
 if not pyzbar_available and not cv2_available:
-    try:
-        print("Intentando cargar zxing como alternativa...")
-        from pyzxing import BarCodeReader
-        zxing_available = True
-        print("zxing cargado correctamente")
-    except ImportError:
-        print("zxing no disponible")
-        
-        # Intentar instalar zxing
-        try:
-            import subprocess
-            print("Intentando instalar pyzxing...")
-            subprocess.check_call(["pip", "install", "pyzxing"])
-            from pyzxing import BarCodeReader
-            zxing_available = True
-            print("pyzxing instalado y cargado correctamente")
-        except Exception as e:
-            print(f"Error al instalar pyzxing: {e}")
-
-if not pyzbar_available and not cv2_available and not zxing_available:
     print("Error crítico: No se encontraron bibliotecas para leer QR.")
-    print("Este bot requiere alguna de estas bibliotecas: pyzbar, OpenCV o pyzxing")
+    print("Este bot requiere alguna de estas bibliotecas: pyzbar o OpenCV")
     print("En sistemas Linux, ejecuta: apt-get install libzbar0 zbar-tools")
     sys.exit(1)
 else:
@@ -176,27 +154,6 @@ def decodificar_qr(imagen_bytes):
             if data:
                 print(f"Contenido del QR (OpenCV - imagen procesada): {data}")
                 return data
-        
-        # 3. Intentar con zxing si está disponible
-        if zxing_available:
-            # Guardar imagen temporalmente
-            temp_path = "temp_qr.png"
-            img.save(temp_path)
-            
-            # Leer con zxing
-            reader = BarCodeReader()
-            results = reader.decode(temp_path)
-            
-            # Eliminar archivo temporal
-            try:
-                os.remove(temp_path)
-            except:
-                pass
-                
-            if results and len(results) > 0 and 'parsed' in results[0]:
-                decoded_text = results[0]['parsed']
-                print(f"Contenido del QR (zxing): {decoded_text}")
-                return decoded_text
         
         return None
     except Exception as e:

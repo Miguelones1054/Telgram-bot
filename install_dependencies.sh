@@ -44,9 +44,28 @@ fi
 echo "=== INSTALANDO DEPENDENCIAS DE PYTHON ==="
 pip install --upgrade pip
 pip install wheel setuptools
-pip install -r requirements.txt
+
+# Instalar dependencias básicas primero
+echo "Instalando dependencias básicas..."
+pip install numpy==1.24.3 Pillow==9.5.0 requests==2.31.0 python-dotenv==1.0.0
+
+# Intentar instalar pyzbar directamente
+echo "Intentando instalar pyzbar..."
+pip install pyzbar==0.1.9 || echo "Error al instalar pyzbar, continuando..."
+
+# Instalar OpenCV como alternativa
+echo "Instalando OpenCV..."
+pip install opencv-python-headless==4.8.0.74 || echo "Error al instalar OpenCV, continuando..."
+
+# Instalar el resto de dependencias
+echo "Instalando el resto de dependencias..."
+pip install pyTelegramBotAPI==4.14.0 google-generativeai==0.3.2
+
+# Instalar el proyecto actual
+echo "Instalando el proyecto..."
+pip install -e . || echo "Error al instalar el proyecto, continuando..."
 
 echo "=== VERIFICANDO INSTALACIÓN DE PAQUETES PYTHON ==="
-pip list | grep -E 'pyzbar|opencv|Pillow|numpy|pyTelegramBotAPI|pyzxing'
+pip list | grep -E 'pyzbar|opencv|Pillow|numpy|pyTelegramBotAPI'
 
 echo "=== INSTALACIÓN COMPLETADA ===" 
