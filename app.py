@@ -73,6 +73,8 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 async def handle_comprobante(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.message:
+        return  # Ignora updates que no son mensajes de texto normales
     chat_id = update.effective_chat.id
     if not whitelist.is_authorized(chat_id):
         await update.message.reply_text(
