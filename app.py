@@ -3,8 +3,8 @@ import base64
 import logging
 import re
 import requests
-from telegram import Update
-from telegram.ext import Application, MessageHandler, filters, ContextTypes, CommandHandler
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, MessageHandler, filters, ContextTypes, CommandHandler, CallbackQueryHandler
 from qr_scanner import procesar_imagen_qr
 from dotenv import load_dotenv
 from whitelist import Whitelist
@@ -170,6 +170,24 @@ async def get_chat_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown"
     )
 
+async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    keyboard = [
+        [
+            InlineKeyboardButton("Recargar cuenta", callback_data="recargar_cuenta"),
+            InlineKeyboardButton("Comprar usuario", callback_data="comprar_usuario")
+        ]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text("Selecciona una opción:", reply_markup=reply_markup)
+
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    if query.data == "recargar_cuenta":
+        await query.edit_message_text(text="Has elegido *Recargar cuenta*.", parse_mode="Markdown")
+    elif query.data == "comprar_usuario":
+        await query.edit_message_text(text="Has elegido *Comprar usuario*.", parse_mode="Markdown")
+
 if __name__ == "__main__":
     app = Application.builder().token(TELEGRAM_TOKEN).build()
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
@@ -177,5 +195,7 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("autorizar", add_to_whitelist))
     app.add_handler(CommandHandler("remover", remove_from_whitelist))
     app.add_handler(CommandHandler("id", get_chat_id))
+    app.add_handler(CommandHandler("menu", menu_handler))
+    app.add_handler(CallbackQueryHandler(button_handler))
     print("Bot de Telegram iniciado. Esperando imágenes...")
     app.run_polling(drop_pending_updates=True) 
