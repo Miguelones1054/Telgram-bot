@@ -120,11 +120,13 @@ async def add_to_whitelist(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     try:
-        # Obtener el ID del argumento del comando
+        # Si no hay argumento, autoriza el chat actual
         if not context.args:
-            await update.message.reply_text("❌ Por favor, proporciona el ID del chat a autorizar.")
+            chat_id = update.effective_chat.id
+            whitelist.add_id(chat_id)
+            await update.message.reply_text(f"✅ Chat ID {chat_id} ha sido autorizado exitosamente (chat actual).")
             return
-        
+        # Si hay argumento, autoriza ese ID
         chat_id = int(context.args[0])
         whitelist.add_id(chat_id)
         await update.message.reply_text(f"✅ Chat ID {chat_id} ha sido autorizado exitosamente.")
