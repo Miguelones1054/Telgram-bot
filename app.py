@@ -1,11 +1,14 @@
 import os
 import base64
 import logging
+import re
+import requests
 from telegram import Update
 from telegram.ext import Application, MessageHandler, filters, ContextTypes, CommandHandler
 from qr_scanner import procesar_imagen_qr
 from dotenv import load_dotenv
 from whitelist import Whitelist
+from io import BytesIO
 
 # Cargar variables de entorno
 load_dotenv()
@@ -69,6 +72,47 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_to_message_id=update.message.message_id
         )
 
+async def handle_comprobante(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    if not whitelist.is_authorized(chat_id):
+        await update.message.reply_text(
+            "❌ No autorizado\n"
+            "Solo disponible en el grupo de telegram @NequiAlpha01\n"
+            "Bot creado por @Neonova_Ui",
+            reply_to_message_id=update.message.message_id,
+            disable_web_page_preview=True
+        )
+        return
+
+    mensaje = update.message.text
+    patron = r"Comprobante para (.+?) de (\d+) al numero (\d+)"
+    coincidencia = re.match(patron, mensaje)
+    if coincidencia:
+        recipient = coincidencia.group(1)
+        amount = coincidencia.group(2)
+        phone = coincidencia.group(3)
+
+        payload = {
+            "tipo": "bot",
+            "datos": {
+                "recipient": recipient,
+                "amount": amount,
+                "phone": phone
+            }
+        }
+        API_URL = os.getenv("API_COMPROBANTE_URL", "https://nequifrontx.onrender.com/generate_image/")
+        try:
+            respuesta = requests.post(API_URL, json=payload)
+            if respuesta.status_code == 200:
+                imagen = BytesIO(respuesta.content)
+                imagen.name = "comprobante.png"
+                await update.message.reply_photo(photo=imagen)
+            else:
+                await update.message.reply_text("Error generando el comprobante. Intenta más tarde.")
+        except Exception as e:
+            await update.message.reply_text(f"Ocurrió un error: {e}")
+    # No else: este handler solo responde si el mensaje tiene el formato correcto
+
 async def add_to_whitelist(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Verificar si el comando lo envía el administrador
     if update.effective_user.id != ADMIN_ID:
@@ -129,6 +173,7 @@ async def get_chat_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
 if __name__ == "__main__":
     app = Application.builder().token(TELEGRAM_TOKEN).build()
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
+    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_comprobante))
     app.add_handler(CommandHandler("autorizar", add_to_whitelist))
     app.add_handler(CommandHandler("remover", remove_from_whitelist))
     app.add_handler(CommandHandler("id", get_chat_id))
