@@ -98,7 +98,25 @@ async def handle_comprobante(update: Update, context: ContextTypes.DEFAULT_TYPE)
     patron = r"comprobante\s*para\s*(.+?)\s*de\s*(\d+)\s*al\s*numero\s*(\d+)"
     coincidencia = re.match(patron, mensaje_normalizado, re.IGNORECASE)
     if coincidencia:
-        recipient = coincidencia.group(1)
+        # Extraer los mismos grupos del mensaje original usando los índices del match en el mensaje normalizado y mapearlo al mensaje original
+        # Para esto, se puede usar re.finditer para encontrar la posición del nombre en el mensaje normalizado y mapearlo al mensaje original
+        # Pero como el patrón es estricto, podemos usar split para obtener el nombre original
+        partes = re.split(r"de\s*\d+\s*al\s*numero\s*\d+", mensaje_normalizado)
+        if len(partes) > 0:
+            # Encuentra el inicio del nombre en el mensaje original
+            idx_inicio = mensaje.lower().find('para')
+            if idx_inicio != -1:
+                idx_inicio += len('para')
+                # Busca el 'de' después del nombre
+                idx_de = mensaje.lower().find('de', idx_inicio)
+                if idx_de != -1:
+                    recipient = mensaje[idx_inicio:idx_de].strip()
+                else:
+                    recipient = coincidencia.group(1)  # fallback
+            else:
+                recipient = coincidencia.group(1)  # fallback
+        else:
+            recipient = coincidencia.group(1)  # fallback
         amount = coincidencia.group(2)
         phone = coincidencia.group(3)
 
