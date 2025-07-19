@@ -9,6 +9,7 @@ from qr_scanner import procesar_imagen_qr
 from dotenv import load_dotenv
 from whitelist import Whitelist
 from io import BytesIO
+import unicodedata
 
 # Cargar variables de entorno
 load_dotenv()
@@ -32,6 +33,12 @@ logging.basicConfig(
 whitelist = Whitelist()
 # Asegurarse de que el admin esté en la lista blanca
 whitelist.add_id(ADMIN_ID)
+
+def normalizar(texto):
+    return ''.join(
+        c for c in unicodedata.normalize('NFD', texto)
+        if unicodedata.category(c) != 'Mn'
+    ).lower()
 
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Verificar si el usuario/grupo está autorizado
@@ -87,8 +94,9 @@ async def handle_comprobante(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
 
     mensaje = update.message.text
-    patron = r"Comprobante para (.+?) de (\d+) al numero (\d+)"
-    coincidencia = re.match(patron, mensaje)
+    mensaje_normalizado = normalizar(mensaje)
+    patron = r"comprobante\s*para\s*(.+?)\s*de\s*(\d+)\s*al\s*numero\s*(\d+)"
+    coincidencia = re.match(patron, mensaje_normalizado, re.IGNORECASE)
     if coincidencia:
         recipient = coincidencia.group(1)
         amount = coincidencia.group(2)
