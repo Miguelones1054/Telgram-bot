@@ -85,9 +85,7 @@ async def handle_comprobante(update: Update, context: ContextTypes.DEFAULT_TYPE)
     chat_id = update.effective_chat.id
     if not whitelist.is_authorized(chat_id):
         await update.message.reply_text(
-            "❌ No autorizado\n"
-            "Solo disponible en el grupo de telegram @NequiAlpha01\n"
-            "Bot creado por @Neonova_Ui",
+            "❌ No autorizado",
             reply_to_message_id=update.message.message_id,
             disable_web_page_preview=True
         )
